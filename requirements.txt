@@ -1,0 +1,53 @@
+# Dex-X core dependencies (curated).
+#
+# Isaac Lab, Isaac Sim, torch and pytorch3d are NOT here. Isaac Lab installs
+# torch, and pytorch3d must be built against exactly that torch — so both are
+# resolved at setup time rather than pinned in this file. See
+# tutorial/00_setup/MANUAL_SETUP.md, or run tutorial/00_setup/setup_env.sh.
+#
+# Use constraints-sim45.txt for the documented compatibility baseline.
+# requirements-full.txt is a compatibility alias, not a frozen environment.
+-c constraints-sim45.txt
+
+# --- core ---
+numpy
+gymnasium
+termcolor
+tqdm
+pyyaml
+wandb
+tensorboardX
+joblib
+omegaconf
+opencv-python           # also required by Isaac Sim; avoid a second cv2 provider
+matplotlib
+
+# --- geometry / kinematics / retargeting ---
+trimesh
+yourdfpy                # URDF FK for the calibration tools
+pytorch_kinematics
+# pytorch3d is REQUIRED, not optional: the demonstration loader imports
+# pytorch3d.ops / pytorch3d.transforms at module load, so training cannot start
+# without it. It is installed separately because the wheel must match the torch
+# Isaac Lab chose -- see MANUAL_SETUP.md step 3.
+#
+# Resolve these pinned sources once, under the same Torch constraints.
+bps_torch @ git+https://github.com/KailinLi/bps_torch.git@4a2eb59dfbf8982de1af878552e561d688dced28
+chamfer_distance @ git+https://github.com/otaheri/chamfer_distance@f86f6f7cadd3aca642704573d1626c67ca2e2846
+
+# --- depth rendering (REQUIRED for the point-cloud env, i.e. the whole
+#     student pipeline: franka_sharpa_pointcloud_env instantiates it at init) ---
+# This revision supports dynamic per-environment mesh subsets and two outputs.
+simple-raycaster @ git+https://github.com/btx0424/simple-raycaster.git@7bab59c56e9a340f20b7af29e4b769108cb697fd
+warp-lang               # the raycasting kernels
+mujoco                  # imported at module load by simple_raycaster.raycaster
+jaxtyping
+fast_simplification
+scipy
+
+# --- point cloud / visualization ---
+imageio
+imageio-ffmpeg
+viser
+
+# Optional real-robot dependencies: requirements-deploy.txt.

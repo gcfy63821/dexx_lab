@@ -1,0 +1,26 @@
+{
+  "name": "sin_j2",
+  "joint_names": [
+    "fr3_joint1",
+    "fr3_joint2",
+    "fr3_joint3",
+    "fr3_joint4",
+    "fr3_joint5",
+    "fr3_joint6",
+    "fr3_joint7"
+  ],
+  "control_freq_hz": 30.0,
+  "duration_s": 25.6,
+  "n_steps": 768,
+  "base_pose": [
+    0.0,
+    0.0,
+    0.0,
+    -1.57,
+    0.0,
+    1.57,
+    0.0
+  ],
+  "description": "Pure sinusoid on joint 2 (shoulder pitch). Chirp showed +70ms lag here \u2014 check if it's real or coupling artifact.",
+  "safety_checked": true
+}

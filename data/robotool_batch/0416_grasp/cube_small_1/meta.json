@@ -1,0 +1,16 @@
+{
+  "task": "0416_grasp",
+  "sequence": "cube_small_1",
+  "object_ids": [
+    "cube_small"
+  ],
+  "mano_sides": [
+    "left",
+    "right"
+  ],
+  "num_frames": 258,
+  "source_fps": 25.0,
+  "obj_mesh_paths": {
+    "cube_small": "models/cube_small/cleaned_mesh_10000.obj"
+  }
+}

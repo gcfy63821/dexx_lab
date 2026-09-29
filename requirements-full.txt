@@ -1,0 +1,6 @@
+# Compatibility alias; NOT a frozen or self-contained environment.
+# The former development snapshot contained machine-local paths and conflicting
+# Lab/Torch/Gym versions. It remains available in git history.
+# Install Isaac Sim, the pinned Isaac Lab checkout, Torch and matching PyTorch3D
+# first, using tutorial/00_setup/setup_env.sh or MANUAL_SETUP.md.
+-r requirements.txt

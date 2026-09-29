@@ -1,0 +1,26 @@
+{
+  "name": "step_per_joint",
+  "joint_names": [
+    "fr3_joint1",
+    "fr3_joint2",
+    "fr3_joint3",
+    "fr3_joint4",
+    "fr3_joint5",
+    "fr3_joint6",
+    "fr3_joint7"
+  ],
+  "control_freq_hz": 30.0,
+  "duration_s": 81.66666666666667,
+  "n_steps": 2450,
+  "base_pose": [
+    0.0,
+    0.0,
+    0.0,
+    -1.57,
+    0.0,
+    1.57,
+    0.0
+  ],
+  "description": "Sequential step up/center/down/center per joint. Mirrors existing step_response tests, re-expressed in unified motion-file format.",
+  "safety_checked": true
+}

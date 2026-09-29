@@ -1,0 +1,14 @@
+# Compatibility baseline: Isaac Sim 4.5 / Isaac Lab v2.2.1 / Python 3.10.
+# This is not a full lock file. Validate CUDA operators and the complete task
+# on the target machine; see tutorial/00_setup/MANUAL_SETUP.md.
+isaaclab==0.45.9
+torch==2.7.0
+torchvision==0.22.0
+gymnasium==1.2.0
+numpy==1.26.4
+# Lab's flatdict 4.0.1 source build still imports pkg_resources.
+setuptools<81
+# Newer Pinocchio wheels require NumPy 2 through cmeel-boost.
+pin==2.7.0
+# OpenCV >=4.12 requires NumPy 2 on Python 3.10.
+opencv-python<4.12

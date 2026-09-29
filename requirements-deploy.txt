@@ -1,0 +1,8 @@
+# Optional transport dependencies for the real-robot / camera tools.
+# Install in addition to the simulation environment when needed.
+# Polymetis, ROS and camera/hand SDKs are installed on their respective hosts.
+pyzmq
+msgpack
+msgpack-numpy
+# Camera host only (deploy/realsense_depth_zmq_pub.py):
+# pyrealsense2

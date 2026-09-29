@@ -1,0 +1,26 @@
+{
+  "name": "sin_j6",
+  "joint_names": [
+    "fr3_joint1",
+    "fr3_joint2",
+    "fr3_joint3",
+    "fr3_joint4",
+    "fr3_joint5",
+    "fr3_joint6",
+    "fr3_joint7"
+  ],
+  "control_freq_hz": 30.0,
+  "duration_s": 23.6,
+  "n_steps": 708,
+  "base_pose": [
+    0.0,
+    0.0,
+    0.0,
+    -1.57,
+    0.0,
+    1.57,
+    0.0
+  ],
+  "description": "Pure sinusoid on joint 6 (wrist pitch). Lighter inertia \u2192 faster dynamics, stresses sim at high freq.",
+  "safety_checked": true
+}

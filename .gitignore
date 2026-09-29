@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+# runtime outputs (not part of release)
+logs/
+runs/
+wandb/
+outputs/
+dumps/
+*.log
+# large binaries kept out of git; ship via release assets
+# checkpoints/*.pth
+
+# Vendored upstream assets are kept verbatim; never ignore anything under them.
+!assets/franka_fr3/**
+!assets/sharpa_wave/**
+
+# backups written by tools/dataset/ editors (restore with the tool, never commit)
+*.bak
+*.rotbak
+
+# uv virtual environment (tutorial/00_setup/setup_uv.sh)
+.venv/
+.pytest_cache/
+
+# Claude Code local state (.claude/skills stays tracked)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

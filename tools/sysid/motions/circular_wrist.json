@@ -1,0 +1,26 @@
+{
+  "name": "circular_wrist",
+  "joint_names": [
+    "fr3_joint1",
+    "fr3_joint2",
+    "fr3_joint3",
+    "fr3_joint4",
+    "fr3_joint5",
+    "fr3_joint6",
+    "fr3_joint7"
+  ],
+  "control_freq_hz": 30.0,
+  "duration_s": 27.6,
+  "n_steps": 828,
+  "base_pose": [
+    0.0,
+    0.0,
+    0.0,
+    -1.57,
+    0.0,
+    1.57,
+    0.0
+  ],
+  "description": "Circular motion on joints 5&6; detects wrist backlash/hysteresis.",
+  "safety_checked": true
+}

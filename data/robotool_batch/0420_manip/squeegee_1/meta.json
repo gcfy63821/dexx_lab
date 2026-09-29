@@ -1,0 +1,16 @@
+{
+  "task": "0420_manip",
+  "sequence": "squeegee_1",
+  "object_ids": [
+    "squeegee"
+  ],
+  "mano_sides": [
+    "left",
+    "right"
+  ],
+  "num_frames": 353,
+  "source_fps": 25.0,
+  "obj_mesh_paths": {
+    "squeegee": "models/squeegee/cleaned_mesh_10000.obj"
+  }
+}
