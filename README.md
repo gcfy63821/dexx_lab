@@ -205,11 +205,14 @@ Previewing, rotating, drop-testing and fixing demonstrations: [tools/dataset/REA
 If you find Dex-X useful in your research, please consider citing:
 
 ```bibtex
-@article{chen2026dex,
-  title={Dex-x: Learning visual-tactile dexterous manipulation from human videos with simulated interaction},
-  author={Chen, Ruoqu and Ruan, Feixiang and Cao, Liu and Wang, Zihao and Xu, Botian and Tong, Shiqin and Liu, Jiajun and Pei, Mingzhi and Zhang, Chenyu and Xing, Wanli and others},
-  journal={arXiv preprint arXiv:2609.07747},
-  year={2026}
+@misc{chen2026dexxlearningvisualtactiledexterous,
+      title={Dex-X: Learning Visual-Tactile Dexterous Manipulation From Human Videos with Simulated Interaction},
+      author={Ruoqu Chen and Feixiang Ruan and Liu Cao and Zihao Wang and Botian Xu and Shiqin Tong and Jiajun Liu and Mingzhi Pei and Chenyu Zhang and Wanli Xing and Kaifeng Zhang and Mengdi Xu},
+      year={2026},
+      eprint={2609.07747},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2609.07747},
 }
 ```
 
