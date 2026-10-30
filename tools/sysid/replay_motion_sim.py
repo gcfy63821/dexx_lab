@@ -33,21 +33,18 @@ parser.add_argument("--motion", required=True, type=str)
 parser.add_argument("--output", required=True, type=str)
 parser.add_argument("--control_freq_override", type=float, default=None)
 parser.add_argument("--record_freq", type=float, default=100.0)
-# 480 Hz, not 120. The arm PD here is an EXPLICIT
-# torque loop (the implicit actuator is zeroed so gravity comp can be added), and
-# at 120 Hz it is unstable for this robot: a chirp tracks cleanly at low
-# frequency and then diverges, while at 480 Hz the same motion tracks within
-# its target amplitude. Lower this only if you check the result.
+# 480 Hz: the arm PD here is an EXPLICIT torque loop (the implicit actuator is
+# zeroed so gravity comp can be added), which is unstable at 120 Hz on this
+# robot. Lower this only if you check the result.
 parser.add_argument("--physics_freq", type=float, default=480.0)
 parser.add_argument("--approach_s", type=float, default=2.0)
 parser.add_argument("--arm_kp", type=str, default=None,
                     help="Comma-separated 7 stiffness values overriding the training "
                          "gains, e.g. '1600,1600,1200,800,500,300,150'.")
 parser.add_argument("--arm_kd", type=str, default=None,
-                    help="Comma-separated 7 damping values. The Polymetis "
-                         "realignment candidate is '85,135,110,25,18,10,5' "
-                         "(ARM_KD_POLYMETIS_IT2); the training default is "
-                         "'145,135,110,100,50,30,15'.")
+                    help="Comma-separated 7 damping values overriding the training "
+                         "gains, e.g. ARM_KD_POLYMETIS_IT2 "
+                         "'85,135,110,25,18,10,5'.")
 parser.add_argument("--dry_run", action="store_true")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
@@ -96,7 +93,7 @@ from isaaclab.actuators import ImplicitActuatorCfg
 
 # Arm gains: default to what TRAINING uses, so the replay measures the plant the
 # trained policy actually meets. --arm_kp / --arm_kd override for evaluating a
-# candidate set (e.g. ARM_KD_POLYMETIS_IT2 from the Polymetis realignment).
+# candidate set (e.g. ARM_KD_POLYMETIS_IT2).
 from dexx import deploy_config as _dcfg  # noqa: E402
 try:
     from dexx.robot_constants import ARM_TUNED_KP, ARM_TUNED_KD  # noqa: E402
@@ -336,8 +333,8 @@ def main():
     _max_err = float(_err.max()) if _err.size else 0.0
     if _max_err > 1.0:
         raise RuntimeError(
-            f"replay diverged: max |actual - target| = {_max_err:.1f} rad against a "
-            f"target range of ~0.12 rad. The PD torque loop went unstable — raise "
+            f"replay diverged: max |actual - target| = {_max_err:.1f} rad. "
+            f"The PD torque loop went unstable — raise "
             f"--physics_freq (480 is the default for this reason) or lower the "
             f"stiffness. Not saving, because the metrics would look plausible.")
     print(f"[replay_sim] max tracking error {_max_err:.4f} rad — stable")

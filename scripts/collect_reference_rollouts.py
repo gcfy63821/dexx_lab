@@ -136,7 +136,7 @@ def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
     if os.path.isdir("outputs/"):
         shutil.rmtree("outputs/")
 
-    # ---- Apply CLI overrides (mirror play.py so behavior is identical) ----
+    # ---- Apply CLI overrides ----
     env_cfg.scene.num_envs = args_cli.num_envs
     agent_cfg["seed"] = args_cli.seed
     env_cfg.seed = agent_cfg["seed"]
@@ -146,7 +146,7 @@ def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
     agent_cfg["algorithm"]["num_actors"] = args_cli.num_envs
     agent_cfg["algorithm"]["minibatch_size"] = min([args_cli.num_envs * 8, 32768])
 
-    # Same eval-time toggles as play.py
+    # Eval-time toggles: fixed PD gains, COM and mass; friction DR stays on.
     env_cfg.randomize_pd_gains = False
     env_cfg.randomize_friction = True
     env_cfg.randomize_com = False

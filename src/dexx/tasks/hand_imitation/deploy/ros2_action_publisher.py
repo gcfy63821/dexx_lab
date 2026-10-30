@@ -81,7 +81,7 @@ class ROS2ActionPublisher(Node):
             qos_best_effort,
         )
 
-        # Legacy Float32MultiArray publisher (kept for compatibility)
+        # Float32MultiArray copy of the arm target on /arm_joint_positions
         self.arm_joint_pos_legacy_pub = self.create_publisher(
             Float32MultiArray,
             'arm_joint_positions',
@@ -198,7 +198,7 @@ class ROS2ActionPublisher(Node):
         msg.effort = []
         self.arm_joint_pos_pub.publish(msg)
 
-        # Legacy: Float32MultiArray on /arm_joint_positions (for compatibility)
+        # Secondary: Float32MultiArray on /arm_joint_positions
         legacy_msg = Float32MultiArray()
         legacy_msg.layout = MultiArrayLayout()
         dim = MultiArrayDimension()

@@ -97,8 +97,8 @@ parser.add_argument("--pc_ablate_scene_pc", action="store_true", default=None,
                          "(default: whatever the checkpoint was trained with).")
 parser.add_argument("--mask_obs_slots", type=str, default=None,
                     help="Comma-separated obs-slot ranges to zero before feeding student. "
-                         "Format: 'lo:hi,lo:hi,...' e.g. '390:397,550:557' — take the bounds from the [obs-slots] line the env prints at startup, never from a remembered number; the block order has changed before. "
-                         "Useful for K=1 demo-target field ablations (eval-only).")
+                         "Format: 'lo:hi,lo:hi,...' e.g. '390:397,550:557' — take the bounds from the [obs-slots] line the env prints at startup. "
+                         "Eval-only.")
 
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()

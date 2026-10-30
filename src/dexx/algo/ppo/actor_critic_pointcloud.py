@@ -66,11 +66,9 @@ class ActorCriticPointCloud(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Linear) and getattr(m, "bias", None) is not None:
                 nn.init.zeros_(m.bias)
-        # Init logstd. Default 0.0 = sigma 1.0 is too wide for fine-tuning a
-        # DAgger student whose action units are roughly [-1, 1]: at sigma=1 the
-        # sampled action is essentially random noise and DAgger's mu signal is
-        # drowned. Pass `init_logstd` in kwargs (e.g. -2.0 → sigma 0.135) for
-        # PPO fine-tune; leave at 0 for from-scratch PPO if ever needed.
+        # Init logstd (default 0.0 → sigma 1.0). Actions are roughly [-1, 1], so
+        # to fine-tune a DAgger student pass a smaller `init_logstd` (e.g. -2.0
+        # → sigma 0.135) so sampling noise does not drown the learned mean.
         init_logstd = float(kwargs.get("init_logstd", 0.0))
         nn.init.constant_(self.sigma, init_logstd)
 
@@ -105,7 +103,7 @@ class ActorCriticPointCloud(nn.Module):
     def act(self, obs_dict: dict) -> dict:
         mu, logstd, value = self._actor_critic(obs_dict)
         # Clamp logstd to keep sigma in (e^-5 ≈ 0.0067, e^2 ≈ 7.4). Prevents the
-        # exp() from blowing up under bf16 autocast + bad gradient signal.
+        # exp() from blowing up under a bad gradient signal.
         logstd = torch.clamp(logstd, min=-5.0, max=2.0)
         sigma = torch.exp(logstd)
         distr = torch.distributions.Normal(mu, sigma)

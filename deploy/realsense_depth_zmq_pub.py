@@ -75,7 +75,7 @@ def main():
 
             # decimation may yield 320x240; enforce exact (240,320) for the deploy.
             if dm.shape != (OUT_H, OUT_W):
-                # center-crop / pad to (240,320) — decimation of 640x480 gives 320x240 already
+                # top-left crop / zero-pad to (240,320)
                 h, w = dm.shape
                 out = np.zeros((OUT_H, OUT_W), dtype=np.float32)
                 hh, ww = min(h, OUT_H), min(w, OUT_W)

@@ -1,7 +1,7 @@
 """Overlay CROPPED real PC vs CROPPED sim frame in env-local (what the policy sees).
 
 Both clouds get the SAME workspace bbox crop (deploy = sim = pc_workspace_min/max),
-so the table (below the crop floor, z=0.417) is removed from both. Confirms real object/hand
+so the table (below the crop floor) is removed from both. Confirms real object/hand
 points that survive the crop line up with sim.
 
   # from a capture_multiframe_zmq.py accumulation (camera frame) + an extrinsic:

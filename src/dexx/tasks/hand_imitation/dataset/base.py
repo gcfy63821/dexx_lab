@@ -32,13 +32,13 @@ class ManipData(Dataset, ABC):
 
         self.verbose = verbose
 
-        # ? modify this depending on the origin point
+        # Offset of the data origin (identity by default).
         self.transf_offset = torch.eye(4, dtype=torch.float32, device=mujoco2gym_transf.device)
 
         self.mujoco2gym_transf = mujoco2gym_transf
         self.max_seq_len = max_seq_len
         self.use_bimanual_retarget = use_bimanual_retarget
-        # caculate contact
+        # contact computation
 
         import chamfer_distance as chd
 

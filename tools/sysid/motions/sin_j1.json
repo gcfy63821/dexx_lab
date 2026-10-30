@@ -21,6 +21,6 @@
     1.57,
     0.0
   ],
-  "description": "Pure sinusoid on joint 1 (shoulder yaw). Large inertia, primarily reveals whether sim's high K=1600 matches real's low K=200 behavior.",
+  "description": "Pure sinusoid on joint 1 (shoulder yaw). Large inertia; compares sim and real stiffness.",
   "safety_checked": true
 }

@@ -393,9 +393,9 @@ class FrankaSharpaPointCloudDeployEnv(FrankaSharpaForceCriticHorizonDeployEnvV3)
         obs_dict["tactile_force"] = tactile_force
 
         # ----------------------------------------------------------------
-        # DEBUG: every 30 steps, summarise scene_pc so we can verify the
-        # RealSense → workspace-cropped point cloud actually contains the
-        # target object. All coords are env-local frame (sim convention).
+        # Every 30 steps, log a scene_pc summary to check that the
+        # workspace-cropped RealSense cloud contains the target object.
+        # All coords are env-local frame (sim convention).
         # Object center is read from the demo trajectory's current frame.
         # ----------------------------------------------------------------
         self._pc_debug_count = int(getattr(self, '_pc_debug_count', 0)) + 1

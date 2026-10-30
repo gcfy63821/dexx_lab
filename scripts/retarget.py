@@ -51,15 +51,15 @@ SIDE_CONFIGS = {
 
 # Resolve project root
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# scripts/ lives directly under the repo root (dexx_release), so up 1 level.
+# scripts/ lives directly under the repo root, so up 1 level.
 PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
 
 """Parse command line arguments."""
 parser = argparse.ArgumentParser(description="Unified Mano to Dexhand retargeting - 2 stage (IsaacLab)")
 parser.add_argument("--iter", type=int, default=4000, help="Maximum iterations")
-parser.add_argument("--data_idx", type=str, default=None, help="Data index (e.g. rt/blue_cup/blue_cup_1)")
+parser.add_argument("--data_idx", type=str, default=None, help="Data index (e.g. rt/0416_grasp/cube_small_2)")
 parser.add_argument("--task", type=str, default=None,
-                    help="Task name to retarget all sequences (e.g. blue_cup). Equivalent to --data_idx rt/{task}/*")
+                    help="Task name to retarget all sequences (e.g. 0416_grasp). Equivalent to --data_idx rt/{task}/*")
 parser.add_argument("--dexhand", type=str, default="sharpa", help="Dexhand type")
 parser.add_argument("--side", type=str, default="right", choices=["left", "right"], help="Hand side")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments")
@@ -73,11 +73,11 @@ parser.add_argument("--obj_scale", type=float, default=1.0,
                          "Saved in output pkl as 'obj_scale' for training to use.")
 parser.add_argument("--stage1_iter", type=int, default=None,
                     help="Stage-1 (arm-only) iteration count. If unset, uses "
-                         "side_cfg['stage1_ratio'] * --iter (legacy default: 1/8 right, 1/12 left). "
+                         "side_cfg['stage1_ratio'] * --iter (1/12 right, 1/8 left). "
                          "If set, overrides the ratio; stage 2 then runs for (--iter - stage1_iter).")
 parser.add_argument("--debug_viz_stride", type=int, default=1,
                     help="Show debug-draw (target hand pose) on every Nth env. "
-                         "Default 1 = env 0 only (legacy). E.g. 10 = envs 0,10,20,... "
+                         "Default 1 = env 0 only. E.g. 10 = envs 0,10,20,... "
                          "Useful when running many parallel envs to visually compare frames.")
 parser.add_argument("--no_real_hand_clamp", action="store_true",
                     help="Disable clamping opt_dof_pos to the real-hand reachable range (measured on the "
@@ -96,8 +96,7 @@ parser.add_argument("--aug_seed", type=int, default=42,
 parser.add_argument("--reachability_th", type=float, default=0.08,
                     help="Reachability gate: if stage1+2 mean arm EE error > this (m), the variant "
                          "is marked reachable=False and a partial pkl is saved (training loader skips it). "
-                         "Raised 0.05 -> 0.08 to admit borderline demos (e.g. ~5.8cm) whose arm EE error "
-                         "slightly exceeds the old gate; lower it back via CLI for stricter tracking.")
+                         "Lower it for stricter tracking.")
 parser.add_argument("--dump_root", type=str, default=None,
                     help="Optional output root for retargeted pkls. robotool_batch task subdirs are "
                          "created under this root. Default: data/retargeting/robotool_batch/mano2<dexhand>.")
@@ -341,7 +340,7 @@ class Mano2Dexhand:
                 f"{side}_sharpa_wave", f"{side}_sharpa_wave.urdf",
             )
 
-        # arm_base_pos single source of truth: dexx.deploy_config (currently (-0.1,0,0.415)).
+        # arm_base_pos single source of truth: dexx.deploy_config.
         from dexx import deploy_config as _dcfg
         self.arm_base_pos = _dcfg.ARM_BASE_POS
         arm_base_rot = _dcfg.ARM_BASE_ROT
@@ -634,10 +633,7 @@ class Mano2Dexhand:
         self.gravity = 9.81
         self.contact_opt_start_iter = 6000
 
-        # Initialize debug draw for visualization
-        
-
-        # Set camera view
+        # Debug draw and camera view (GUI only)
         if not self.headless:
             self.debug_draw = DebugDraw()
             self.sim.set_camera_view([4.0, 3.0, 3.0], [-4.0, -3.0, 0.0])
@@ -781,11 +777,11 @@ class Mano2Dexhand:
         # optimization variable so Stage 2 can use the base yaw for extra reach.
         opt_joint1 = joint1_initial_pos.detach().reshape(1).repeat(self.num_envs).clone().detach().requires_grad_(True)
 
-        print(f"Debug - dexhand_default_dof_pos shape: {self.dexhand_default_dof_pos.shape}")
-        print(f"Debug - opt_hand_dof_pos shape: {opt_hand_dof_pos.shape}")
-        print(f"Debug - opt_arm_joint_pos shape: {opt_arm_joint_pos.shape}")
-        print(f"Debug - num_envs: {self.num_envs}, num_hand_dofs: {self.num_hand_dofs}")
-        print(f"Debug - Joint1 (fixed) initial position: {joint1_initial_pos.item():.4f}")
+        print(f"[init] dexhand_default_dof_pos shape: {self.dexhand_default_dof_pos.shape}")
+        print(f"[init] opt_hand_dof_pos shape: {opt_hand_dof_pos.shape}")
+        print(f"[init] opt_arm_joint_pos shape: {opt_arm_joint_pos.shape}")
+        print(f"[init] num_envs: {self.num_envs}, num_hand_dofs: {self.num_hand_dofs}")
+        print(f"[init] Joint1 (fixed) initial position: {joint1_initial_pos.item():.4f}")
 
         # Two-stage optimization
         stage1_ratio = self.side_cfg["stage1_ratio"]
@@ -817,9 +813,9 @@ class Mano2Dexhand:
         # Compute weights for different joints.
         # Per-finger × per-level scheme: finger_w sets the per-finger importance
         # (thumb > index > middle > ring > pinky), scale modulates within a
-        # finger (tip > distal > intermediate > proximal). This raises the
-        # non-tip levels (distal/intermediate/proximal) so retarget tracks
-        # the whole finger pose, not just the fingertip.
+        # finger (tip > distal > intermediate > proximal). The non-tip levels
+        # keep a substantial weight so retarget tracks the whole finger pose,
+        # not just the fingertip.
         FINGER_W = {"thumb": 25.0, "index": 15.0, "middle": 10.0, "ring": 7.0, "pinky": 5.0}
         LEVEL_SCALE = {"tip": 1.0, "distal": 0.6, "intermediate": 0.4, "proximal": 0.3}
         weight = []
@@ -1009,7 +1005,7 @@ class Mano2Dexhand:
                                           device=hand_upper_limits.device)
             hand_lower_limits = torch.maximum(hand_lower_limits, _real_lower)
             hand_upper_limits = torch.minimum(hand_upper_limits, _real_upper)
-            print(f"[retarget_2stage] Tightened optimization-loop hand limits to real "
+            print(f"[retarget_2stage] Tightened optimization-loop hand limits to the "
                   f"real-hand reachable range (measured on the Sharpa Wave hand, cfg order).")
 
         while iter < max_iter:

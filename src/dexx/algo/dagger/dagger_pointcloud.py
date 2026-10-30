@@ -1,7 +1,6 @@
 """DAgger trainer for the point-cloud student.
 
-The replay buffer is small — ~16 KB per transition — so we can afford large
-replay sizes without choking RAM.
+The replay buffer costs ~16 KB per transition.
 
 Storage layout (per transition, CPU):
     obs            : (proprio_dim,) fp32      ~1-2 KB
@@ -125,7 +124,6 @@ class PCReplayBuffer:
     ) -> None:
         # Store as fp32, not fp16: at scene-PC coordinates >1m the fp16
         # mantissa drops resolution to ~1mm, which degrades PointNet learning.
-        # 3.2 GB at max_buffer=200k fits comfortably on a 64 GB box.
         obs_np = obs.detach().cpu().numpy().astype(np.float32)
         sc_pc = scene_pc.detach().to(torch.float32).cpu()
         sc_mask = scene_mask.detach().cpu()
@@ -341,8 +339,7 @@ class DAggerPointCloud:
             # num_envs steps per env, usually far shorter than an episode, so it
             # only counts episodes short enough to end inside that window, which
             # skews toward early terminations. It is a trend signal, not a
-            # success rate: even a strong teacher (iteration 1, beta = 1) reads
-            # far lower here than in eval_teacher.py. Use eval.py for students.
+            # success rate, and reads lower than eval_teacher.py / eval.py.
             if isinstance(extras, dict) and "succeeded_per_env" in extras:
                 done = done.bool()
                 n_success += float(extras["succeeded_per_env"][done].sum())

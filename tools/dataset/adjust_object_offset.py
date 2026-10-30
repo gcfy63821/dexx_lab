@@ -24,11 +24,11 @@ Writes (bakes offset into existing files):
 Usage:
   # single sequence
   python tools/dataset/adjust_object_offset.py \\
-      --pkl data/robotool_batch/0422_multi/peg_hole_1/mano_joints_corrected.pkl
+      --pkl data/robotool_batch/0416_grasp/cube_small_1/mano_joints_corrected.pkl
 
   # whole task
   python tools/dataset/adjust_object_offset.py \\
-      --task_dir data/robotool_batch/0422_multi
+      --task_dir data/robotool_batch/0416_grasp
 """
 
 import argparse
@@ -523,7 +523,7 @@ def main():
     oy = server.gui.add_slider("Obj dy (m)", min=-R_, max=R_, step=STEP, initial_value=0.0)
     oz = server.gui.add_slider("Obj dz (m)", min=-R_, max=R_, step=STEP, initial_value=0.0)
     # Rotation: fine-grained sliders (0.5° step). Yaw full ±180°, roll/pitch
-    # ±45° (typical small-tilt corrections; widen later if needed).
+    # ±45° (small-tilt corrections).
     ROT_STEP = 0.5
     oyaw   = server.gui.add_slider("Obj yaw   (Z, deg)", min=-180, max=180, step=ROT_STEP, initial_value=0.0)
     opitch = server.gui.add_slider("Obj pitch (Y, deg)", min=-45,  max=45,  step=ROT_STEP, initial_value=0.0)

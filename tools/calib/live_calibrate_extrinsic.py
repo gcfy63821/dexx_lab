@@ -131,10 +131,10 @@ def main():
                    help="Frame the --sim_scene_ply / --sim_hand_ply points are in. "
                         "'env_local' (default): subtract arm_base_pos to reach fr3_link0. "
                         "'link0': already in fr3_link0, no shift (use for gen_sim_frame_ply "
-                        "--frame0 output).")
+                        "--out_frame link0 output).")
     p.add_argument("--init_extrinsic", type=str, default=None,
                    help="4x4 .npy to use as the baseline T_cam_in_armbase instead of "
-                        "the hardcoded DEFAULT (use for a new camera mount).")
+                        "deploy_config's default extrinsic (use for a new camera mount).")
     p.add_argument("--color_file", type=str, default=None,
                    help="(H,W,3) uint8 RGB .npy aligned to --depth_file, so the real PC "
                         "renders in true camera color instead of flat blue.")
@@ -264,7 +264,6 @@ def main():
         wxyz=(1.0, 0.0, 0.0, 0.0),
         color=(255, 30, 30),
     )
-    # Table-top plane outline (workspace_min[x] to max[x] × min[y] to max[y] at z=0)
     # Workspace box, expressed in fr3_link0 frame: the env-local crop minus the
     # arm-base height. Both come from dexx.deploy_config so a re-mount or a new
     # crop propagates here instead of silently disagreeing with the trainer.
@@ -287,7 +286,7 @@ def main():
 
     # ---- Optional: sim reference point cloud (overlay target) ----
     # env_local: convert to fr3_link0 by subtracting arm_base_pos.
-    # link0: already in fr3_link0 (e.g. gen_sim_frame_ply.py --link0), no shift.
+    # link0: already in fr3_link0 (e.g. gen_sim_frame_ply.py --out_frame link0), no shift.
     _ARM_BASE_IN_ENV_LOCAL = _dcfg.arm_base_pos_np()
     _sim_shift = (np.zeros(3, dtype=np.float32) if args.sim_ply_frame == "link0"
                   else _ARM_BASE_IN_ENV_LOCAL)

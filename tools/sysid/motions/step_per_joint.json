@@ -21,6 +21,6 @@
     1.57,
     0.0
   ],
-  "description": "Sequential step up/center/down/center per joint. Mirrors existing step_response tests, re-expressed in unified motion-file format.",
+  "description": "Sequential step up/center/down/center per joint. Same protocol as step_response_sim.py, in motion-file format.",
   "safety_checked": true
 }

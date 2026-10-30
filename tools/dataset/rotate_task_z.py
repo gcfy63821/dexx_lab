@@ -28,21 +28,21 @@ Usage
 -----
     # The common case: rotate every seq in a task folder 90° about world z
     python tools/dataset/rotate_task_z.py \\
-        --task_dir data/robotool_batch/0423_dual
+        --task_dir data/robotool_batch/0416_grasp
 
     # Custom angle / axis / pivot
     python tools/dataset/rotate_task_z.py \\
-        --task_dir data/robotool_batch/0423_dual \\
+        --task_dir data/robotool_batch/0416_grasp \\
         --angle_deg -90 --axis z --pivot 0.5 0 0
 
     # Single seq, also update mano_pose global axis-angle, dry-run first
     python tools/dataset/rotate_task_z.py \\
-        --seq data/robotool_batch/0423_dual/blue_cup_1 \\
+        --seq data/robotool_batch/0416_grasp/cube_small_1 \\
         --update_mano_pose --dry_run
 
     # Restore originals from .rotbak (undo)
     python tools/dataset/rotate_task_z.py \\
-        --task_dir data/robotool_batch/0423_dual --restore
+        --task_dir data/robotool_batch/0416_grasp --restore
 """
 
 import argparse

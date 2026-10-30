@@ -29,7 +29,7 @@ ARM_JOINT_NAMES = [
     "fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
     "fr3_joint5", "fr3_joint6", "fr3_joint7",
 ]
-# Same safe home pose the existing step_response_* scripts use.
+# Same safe home pose as step_response_*.py.
 SAFE_MIDDLE_POS = np.array([0.0, 0.0, 0.0, -1.57, 0.0, 1.57, 0.0], dtype=np.float64)
 
 # Franka FR3 datasheet joint limits (position [rad], velocity [rad/s], accel [rad/s^2]).
@@ -192,9 +192,8 @@ def gen_step_per_joint(freq: float, step_size: float = 0.08,
     Same protocol as tools/sysid/step_response_sim.py, just in CSV form so
     it can be replayed via the unified motion pipeline.
     """
-    # Use a short linear ramp (ramp_s) between levels instead of instant jump,
-    # so the commanded velocity stays bounded. step_size=0.08 / ramp=0.2s
-    # yields peak vel 0.4 rad/s (well under FR3 2.175).
+    # Min-jerk ramp (ramp_s) between levels instead of an instant jump, so the
+    # commanded velocity stays bounded.
     rows = [SAFE_MIDDLE_POS.copy()]
     n_ramp = max(int(ramp_s * freq), 1)
     n_hold = int(hold_s * freq)
@@ -291,7 +290,7 @@ def gen_backlash_detection(freq: float, amplitude: float = 0.03,
 
     Smaller amplitude than chirp so backlash (dead-band) shows up as flat
     segments at reversal points. Uses min-jerk ramps so peak accel stays
-    under limit: for A=0.04, ramp=0.6s → max acc ≈ 2.2 rad/s² (safe on all).
+    under the limit.
     """
     rows = [SAFE_MIDDLE_POS.copy()]
     n_ramp = max(int(ramp_s * freq), 1)
@@ -375,23 +374,23 @@ def main():
     motions = {
         "step_per_joint": (
             gen_step_per_joint(freq),
-            "Sequential step up/center/down/center per joint. Mirrors existing "
-            "step_response tests, re-expressed in unified motion-file format.",
+            "Sequential step up/center/down/center per joint. Same protocol as "
+            "step_response_sim.py, in motion-file format.",
         ),
         "chirp_sweep": (
             gen_chirp_sweep(freq),
-            "Linear frequency chirp 0.2→3 Hz, amplitude 0.15 rad, 7 joints "
+            "Linear frequency chirp 0.2→1.3 Hz, amplitude 0.06 rad, 7 joints "
             "phase-shifted. Enables full Bode plot extraction post-analysis.",
         ),
         "sin_j1": (
             gen_sinusoidal_single_joint(freq, joint=0, amplitude=0.15, f_hz=0.3),
-            "Pure sinusoid on joint 1 (shoulder yaw). Large inertia, primarily "
-            "reveals whether sim's high K=1600 matches real's low K=200 behavior.",
+            "Pure sinusoid on joint 1 (shoulder yaw). Large inertia; compares "
+            "sim and real stiffness.",
         ),
         "sin_j2": (
             gen_sinusoidal_single_joint(freq, joint=1, amplitude=0.15, f_hz=0.3),
-            "Pure sinusoid on joint 2 (shoulder pitch). Chirp showed +70ms lag "
-            "here — check if it's real or coupling artifact.",
+            "Pure sinusoid on joint 2 (shoulder pitch). Separates single-joint "
+            "lag from chirp coupling.",
         ),
         "sin_j3": (
             gen_sinusoidal_single_joint(freq, joint=2, amplitude=0.18, f_hz=0.35),

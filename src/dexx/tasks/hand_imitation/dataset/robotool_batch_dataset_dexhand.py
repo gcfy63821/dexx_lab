@@ -479,7 +479,6 @@ class RobotoolBatchDatasetRH(ManipData):
         # After Rx(+90°), new_y = -raw_z, so to zero frame-0 origin:
         # offset_z = raw_z_0 (positive, since new_y = -raw_z + offset_z = 0)
         offset_z = obj_trajectory[0, 2, 3].item()
-        # offset_z = 0.0
         # If z_bottom_offset is saved (mesh bottom distance from origin in raw z),
         # add it so the mesh bottom (not origin) sits at the table surface.
         z_bottom_offset = original_data.get("z_bottom_offset", 0.0)
@@ -801,12 +800,8 @@ class RobotoolBatchDatasetRH(ManipData):
                 print(f"[RT BM][{self.hand_side}] opt_dof_pos={np.array(opt_params['opt_dof_pos']).shape}")
                 print(f"[RT BM][{self.hand_side}] opt_arm_joint_pos={np.array(opt_params['opt_arm_joint_pos']).shape}")
                 print(f"[RT BM][{self.hand_side}] has opt_joints_pos={'opt_joints_pos' in opt_params}")
-            # Failure-sentinel guard: scripts/retarget.py writes a "partial"
-            # pkl when a variant fails the reachability gate. In it the opt_*
-            # trajectories are stored as `False` (a 0-d value) and reachable=False.
-            # torch.tensor(False) yields a 0-d tensor and later `[:, None]` indexing
-            # crashes with "too many indices for tensor of dimension 0". Treat such a
-            # sentinel like a missing file and fall back to zero placeholders below.
+            # A failure sentinel (see `_is_failed_retarget`) is treated like a
+            # missing file: fall back to zero placeholders below.
             if _is_failed_retarget(opt_params):
                 cprint(
                     f"[WARN] Retargeted result unreachable/failed "

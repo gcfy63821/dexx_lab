@@ -5,7 +5,7 @@ via viser sliders.
 
 This is an extension of `adjust_hand_offset.py`:
   - Same hand offset sliders (left / right dx,dy,dz baked into mano_joints.pkl)
-  - NEW: pick an aux mesh from data/robotool_batch/models/ and place it in
+  - Pick an aux mesh from data/robotool_batch/models/ and place it in
     the scene with position + yaw/roll/pitch sliders. The chosen pose is
     saved to a sidecar `aux_object.json` next to the pkl (does NOT modify
     mano_joints.pkl). The downstream env loader checks for this sidecar to
@@ -13,7 +13,7 @@ This is an extension of `adjust_hand_offset.py`:
 
 Sidecar format (data/.../{seq}/aux_object.json):
     {
-      "aux_obj_id":        "blue_bowl",
+      "aux_obj_id":        "squeegee",
       "aux_pos_world":     [x, y, z],            # z-up world frame (display)
       "aux_quat_wxyz_world": [w, x, y, z],
       "aux_euler_xyz_deg": [roll, pitch, yaw],   # human-readable
@@ -23,7 +23,7 @@ Sidecar format (data/.../{seq}/aux_object.json):
 Usage (single file):
     python tools/dataset/adjust_hand_and_aux.py \
         --pkl data/robotool_batch/0416_grasp/cube_small_1/mano_joints.pkl \
-        --aux_obj_id blue_cup
+        --aux_obj_id squeegee
 
 Usage (task folder):
     python tools/dataset/adjust_hand_and_aux.py \

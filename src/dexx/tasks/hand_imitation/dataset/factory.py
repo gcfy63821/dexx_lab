@@ -43,11 +43,10 @@ class ManipDataFactory:
 
     @staticmethod
     def dataset_type(index):
-        """We use the index to get the dataset type"""
-        """Define your own dataset type and index format here"""
+        """Infer the dataset type from the index format."""
 
         if type(index) == str and index.endswith("M"):
-            # !!! The right hand mirrored dataset comes from the original left hand dataset
+            # 'M' suffix: right-hand data mirrored from the left-hand dataset
             is_mirrored = True
             index = index[:-1]
         else:

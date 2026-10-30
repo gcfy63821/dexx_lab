@@ -13,11 +13,8 @@ transforms that live in `env_cfg`, not in the model weights:
 
 They are set by train-time CLI args, so they are written into the checkpoint
 and restored at eval / play / deploy, which would otherwise default them to
-`1.0 / 0.0 / "zero" / "scalar" / False`. Without that, a student trained with
-`--pc_force_scale 10 --pc_tactile_force_gate 0.05 --pc_tactile_gate_mode mask`
-would be evaluated on forces **10x larger than training** with **every**
-tactile point un-gated, and a `--pc_force_repr binary` student would be fed
-continuous magnitudes. Silent, and it moves success rate.
+`1.0 / 0.0 / "zero" / "scalar" / False` and silently feed the student inputs
+it was not trained on (e.g. un-scaled, un-gated forces).
 
 Keeping the collect/apply pair here means trainer, eval, play and deploy read
 one definition.
@@ -73,7 +70,7 @@ def collect_pc_env_meta(env_cfg) -> dict[str, Any]:
 
 
 class _RenamingUnpickler(pickle.Unpickler):
-    """Resolve classes pickled by the research codebase (`rl_isaaclab.*`),
+    """Resolve classes pickled under the `rl_isaaclab.*` module names,
     e.g. a DAgger checkpoint's `cfg`, to the same classes in `dexx`."""
 
     def find_class(self, module, name):
@@ -92,7 +89,7 @@ class _renaming_pickle:  # passed to torch.load(pickle_module=...)
 
 
 def load_checkpoint(path: str, map_location="cpu") -> dict:
-    """torch.load for student checkpoints, including research-era ones."""
+    """torch.load for student checkpoints, including ones pickled under `rl_isaaclab.*`."""
     import torch
 
     return torch.load(path, map_location=map_location, weights_only=False,

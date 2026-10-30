@@ -184,7 +184,7 @@ def _print_table(rows: list[dict], joint_names: list[str]):
         print("(no active joints)")
     print()
     print("Legend:")
-    print("  rmse(mm°) — RMSE between sim-actual and real-actual (degrees)")
+    print("  rmse(°)   — RMSE between sim-actual and real-actual (degrees)")
     print("  MAPE%     — mean abs err / range of real motion, percent")
     print("  corr/cos  — waveform similarity (1.0 = identical shape)")
     print("  lag(ms)   — negative = sim LAGS real (reduce sim damping to fix);")

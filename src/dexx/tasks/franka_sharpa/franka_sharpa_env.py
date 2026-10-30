@@ -435,7 +435,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         if "hand_joints" in self.hand.actuators:
             self.hand.actuators['hand_joints'].effort_limit *= self.cfg.current_coef
         elif "joints" in self.hand.actuators:
-            # Fallback for backward compatibility
+            # Fallback: single actuator group named "joints"
             self.hand.actuators['joints'].effort_limit *= self.cfg.current_coef
 
         # randomize
@@ -493,8 +493,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         print("Setting up scene ... ")
         # add hand, in-hand object, and goal object
         self.hand = Articulation(self.cfg.robot_cfg)
-        # # -------------------------------------
-        # for multiple object
+        # Object asset(s): one per data_idx
         self.object_urdf_path_list = []
         self.object_scale_list = []
         _missing_assets = []
@@ -503,7 +502,7 @@ class FrankaSharpaEnv(DirectRLEnv):
             asset_path = dset["obj_urdf_path"]
             self.object_urdf_path_list.append(asset_path)
             self.object_scale_list.append(float(dset.get("obj_scale", 1.0)))
-            # Sanity-check the asset path exists on disk now, so we fail with a
+            # Check the asset path exists on disk now, so we fail with a
             # clear message tied to the offending data_idx rather than later
             # under a CUDA "_external_force_b out-of-bounds" assert (which is
             # what happens when MultiAssetSpawnerCfg silently fails to spawn a
@@ -749,8 +748,6 @@ class FrankaSharpaEnv(DirectRLEnv):
         self.table = RigidObject(self.cfg.table_cfg)
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
-        # clone and replicate (no need to filter for this environment)
-        # self.scene.clone_environments(copy_from_source=False)
         self.scene.filter_collisions()
 
         # add articulation to scene - we must register to scene to randomize with EventManager
@@ -876,9 +873,9 @@ class FrankaSharpaEnv(DirectRLEnv):
             self._refresh_lab()
             arm_joint_pos_des = self.arm_joint_pos + arm_delta_actions * self.cfg.joint_delta_scale
 
-            # Smooth — use arm-specific alpha (default 0.15, more aggressive LP than
-            # hand's 0.4) to approximate real Franka impedance ~50ms bandwidth and
-            # damp sim2real arm shake. Falls back to global alpha if cfg missing.
+            # Smooth with the arm-specific alpha (arm_actions_moving_average, a stronger
+            # low-pass than the hand's) to approximate the real Franka impedance
+            # bandwidth. Falls back to the global alpha if unset.
             _arm_alpha = getattr(self.cfg, 'arm_actions_moving_average', act_moving_average)
             arm_joint_pos_des = (
                 _arm_alpha * arm_joint_pos_des
@@ -893,23 +890,13 @@ class FrankaSharpaEnv(DirectRLEnv):
             self.arm_joint_pos_des_prev = arm_joint_pos_des.clone()
             self.arm_joint_pos_des = arm_joint_pos_des.clone()
         elif self.use_pid_control or self.use_osc_control:
-
-            ###### using velocity control ######
-            # translation_vel = actions[:, :3]  # [num_envs, 3]
-            # rotation_vel = actions[:, 3:9]  # [num_envs, 6]
-            # rotation_vel_aa = rot6d_to_aa(rotation_vel)  # [num_envs, 3]
-            # dt = self.physics_dt * 5
-            # position_error = translation_vel * dt
-            # rotation_error_6d = rotation_vel * dt
-            # rotation_error_aa = rot6d_to_aa(rotation_error_6d)
             cur_idx = self._get_demo_idx()
-            ###################################################################
-            ###### using position control ###### Get wrist pose error from actions
+            # Wrist pose error from actions
             position_error = actions[:, :3] * self.translation_scale   # [num_envs, 3], scaled from [-1,1] to meters
             rotation_error_6d = actions[:, 3:9] * self.orientation_scale   # [num_envs, 6], scaled
             rotation_error_aa = rot6d_to_aa(rotation_error_6d)  # [num_envs, 3]
             
-            # # Get current wrist pose
+            # Get current wrist pose
             self._refresh_lab()
 
             current_wrist_pos = self.base_pos  # [num_envs, 3]
@@ -924,7 +911,6 @@ class FrankaSharpaEnv(DirectRLEnv):
             rotation_error_quat = aa_to_quat(rotation_error_aa)  # [num_envs, 4]
             target_wrist_quat = quat_mul(rotation_error_quat, current_wrist_quat)  # [num_envs, 4]
 
-            # ####### Canchoose:
             # Apply moving average smoothing to wrist target (similar to hand joints)
             self.cur_wrist_target_pos = (
                 act_moving_average * target_wrist_pos
@@ -956,7 +942,7 @@ class FrankaSharpaEnv(DirectRLEnv):
             )
             ik_commands = torch.cat([target_pos_b, target_quat_b], dim=-1)  # [num_envs, 7] in root frame
 
-            # Debug: verify coordinate frame alignment (print every 500 steps for env 0)
+            # Periodic IK frame diagnostics (env 0, every 500 steps)
             if not hasattr(self, '_ik_debug_counter'):
                 self._ik_debug_counter = 0
             self._ik_debug_counter += 1
@@ -972,7 +958,7 @@ class FrankaSharpaEnv(DirectRLEnv):
                 demo_wrist_pos = self.demo_data["wrist_pos"][0, demo_idx[0]]
                 demo_wrist_rot = self.demo_data["wrist_rot"][0, demo_idx[0]]
 
-                print(f"[IK DEBUG] step={self._ik_debug_counter}, demo_frame={demo_idx[0].item()}")
+                print(f"[IK] step={self._ik_debug_counter}, demo_frame={demo_idx[0].item()}")
                 print(f"  root_pos_w[0]:         {root_pose_w[0, :3].cpu().numpy()}")
                 print(f"  env_origins[0]:         {self.scene.env_origins[0].cpu().numpy()}")
                 print(f"  arm_base_pos (cfg):     {self.cfg.arm_base_pos}")
@@ -989,34 +975,9 @@ class FrankaSharpaEnv(DirectRLEnv):
                 print(f"  target_pos_b (root):    {target_pos_b[0].cpu().detach().numpy()}")
                 print(f"  ee_pos_b (root):        {ee_pos_b_check.cpu().numpy()}")
                 print(f"  IK pos_error:           {ik_pos_error.cpu().detach().numpy()}")
-                print(f"  --- Sanity check ---")
+                print(f"  --- Demo gap ---")
                 print(f"  demo-current gap:       {(demo_wrist_pos - current_wrist_pos[0]).cpu().detach().numpy()}")
-            ########################################################
 
-            # Type 2: data wrist pose + delta action 
-            
-            # Use advanced indexing: [torch.arange(num_envs), cur_idx] to select different indices for each environment
-            # target_wrist_pos = self.demo_data["opt_wrist_pos"][torch.arange(self.num_envs), cur_idx] + actions[:, :3] * self.translation_scale  # [num_envs, 3]
-            # # Convert 6D rotation action to axis-angle, then add to demo wrist rotation
-            # rotation_action_6d = actions[:, 3:9] * self.orientation_scale  # [num_envs, 6]
-            # rotation_action_aa = rot6d_to_aa(rotation_action_6d)  # [num_envs, 3]
-            # target_wrist_rot_aa = self.demo_data["opt_wrist_rot"][torch.arange(self.num_envs), cur_idx] + rotation_action_aa  # [num_envs, 3]
-            # target_wrist_quat = aa_to_quat(target_wrist_rot_aa)  # [num_envs, 4]
-
-
-            # # Type 4: only reference demo data
-            # target_wrist_pos = self.demo_data["opt_wrist_pos"][torch.arange(self.num_envs), cur_idx] # [num_envs, 3]
-            # # Convert 6D rotation action to axis-angle, then add to demo wrist rotation
-            # rotation_action_6d = actions[:, 3:9] * self.orientation_scale  # [num_envs, 6]
-            # rotation_action_aa = rot6d_to_aa(rotation_action_6d)  # [num_envs, 3]
-            # target_wrist_rot_aa = self.demo_data["opt_wrist_rot"][torch.arange(self.num_envs), cur_idx] # [num_envs, 3]
-            # target_wrist_quat = aa_to_quat(target_wrist_rot_aa)  # [num_envs, 4]
-            
-            
-            
-            # # Prepare IK command: [pos(3), quat(4)]
-            # ik_commands = torch.cat([target_wrist_pos, target_wrist_quat], dim=-1)  # [num_envs, 7]
-            
             # Set command for arm controller (Diff IK or OSC)
             if self.use_osc_control:
                 # OSC expects [pos(3), quat(4)] + optional Kp, same as ik_commands
@@ -1025,27 +986,8 @@ class FrankaSharpaEnv(DirectRLEnv):
                 self._osc.set_command(command=osc_command)
             else:
                 self.arm_diff_ik_controller.set_command(ik_commands)
-            
-            # # Get current quantities from simulation for IK computation
-            # jacobian = self.hand.root_physx_view.get_jacobians()[:, self.ee_jacobi_idx, :, self.arm_robot_entity_cfg.joint_ids]
-            # ee_pose_w = self.hand.data.body_pose_w[:, self.arm_robot_entity_cfg.body_ids[0]]
-            # root_pose_w = self.hand.data.root_pose_w
-            # joint_pos = self.hand.data.joint_pos[:, self.arm_robot_entity_cfg.joint_ids]
-            # # joint_pos = self.arm_joint_pos_des.clone()
-            
-            # # Compute frame in root frame
-            # ee_pos_b, ee_quat_b = subtract_frame_transforms(
-            #     root_pose_w[:, 0:3], root_pose_w[:, 3:7], ee_pose_w[:, 0:3], ee_pose_w[:, 3:7]
-            # )
-            
-            # # Compute target joint positions using Differential IK controller
-            # arm_joint_pos_des = self.arm_diff_ik_controller.compute(
-            #     ee_pos_b, ee_quat_b, jacobian, joint_pos
-            # )
-            
-            # self.arm_joint_pos_des = arm_joint_pos_des.clone()
         elif self.use_joint_pos_control:
-            # not working well
+            # Absolute arm joint-position control (joint-delta control is recommended)
             arm_dof_actions = actions[:, :root_control_dim]
             arm_dof_actions = torch.clamp(arm_dof_actions, -1, 1)
         
@@ -1055,7 +997,7 @@ class FrankaSharpaEnv(DirectRLEnv):
                 self.arm_joint_lower_limits,
                 self.arm_joint_upper_limits,
             )
-            # smooth — use arm-specific alpha if set (more aggressive LP for sim2real arm-shake)
+            # smooth — use arm-specific alpha if set
             _arm_alpha = getattr(self.cfg, 'arm_actions_moving_average', act_moving_average)
             arm_joint_pos_des_smooth = (
                 _arm_alpha * arm_joint_pos_des
@@ -1170,9 +1112,6 @@ class FrankaSharpaEnv(DirectRLEnv):
         self.action_rate = self.actions - self.last_actions
         self.last_actions[:] = self.actions
 
-        # # ==== DEBUG wrist force and torque ====
-        # print(f"DEBUG force torque command:{self.apply_forces.mean().item()},{self.apply_torque.mean().item()}")
-
 
     def _apply_action(self) -> None:
         self._refresh_lab()
@@ -1181,17 +1120,8 @@ class FrankaSharpaEnv(DirectRLEnv):
         # We need to set targets for all joints
         all_joint_targets = torch.zeros((self.num_envs, self.hand.num_joints), device=self.device)
         # Set hand joint targets
-        # all_joint_targets[:, self.hand_joint_indices] = self.cur_targets
         all_joint_targets[:, self.actuated_dof_indices] = self.cur_targets
-        
-        # # Set arm joint targets from Differential IK controller
-        # if self.use_pid_control and hasattr(self, 'arm_joint_pos_des'):
-        #     # Use desired joint positions from Differential IK controller
-        #     all_joint_targets[:, self.arm_joint_indices] = self.arm_joint_pos_des
-        # elif hasattr(self, 'arm_joint_indices') and len(self.arm_joint_indices) > 0:
-        #     # Fallback: keep arm joints at current positions
-        #     if hasattr(self, 'arm_joint_pos'):
-        #         all_joint_targets[:, self.arm_joint_indices] = self.arm_joint_pos
+
         if self.use_osc_control:
             # OSC: compute joint efforts directly (includes gravity comp internally)
             from isaaclab.utils.math import matrix_from_quat, quat_inv, quat_apply_inverse
@@ -1271,11 +1201,11 @@ class FrankaSharpaEnv(DirectRLEnv):
             )
             self.arm_joint_pos_des = arm_joint_pos_des.clone()
 
-            # Debug
+            # Periodic IK diagnostics (see _pre_physics_step)
             if hasattr(self, '_ik_debug_counter') and self._ik_debug_counter % 500 == 1:
                 ik_cmd = self.arm_diff_ik_controller._command
                 ik_pos_err = ik_cmd[0, :3] - ee_pos_b[0]
-                print(f"[IK _apply_action DEBUG]")
+                print(f"[IK _apply_action]")
                 print(f"  ee_pos_b[0] (root):    {ee_pos_b[0].cpu().numpy()}")
                 print(f"  IK command[0] (root):  {ik_cmd[0, :3].cpu().detach().numpy()}")
                 print(f"  IK pos_error:          {ik_pos_err.cpu().detach().numpy()}")
@@ -1394,7 +1324,6 @@ class FrankaSharpaEnv(DirectRLEnv):
         last_K_transf = obj_traj[env_idx[:, None], last_K_idx]          # [N, K, 4, 4]
         target_state["final_K_obj_pos"] = last_K_transf[..., :3, 3]    # [N, K, 3]
 
-        # target_state["tip_force"] = self.last_contacts
         target_state["tip_force"] = torch.stack(
             [
                 # (N, B, 3) -> (N, 3)
@@ -1489,7 +1418,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         max_length_tensor = max_length.float()
         _eval_no_terminate = bool(getattr(self.cfg, 'eval_no_terminate', False))
         if not hasattr(self, "_eval_no_terminate_logged"):
-            print(f"[DEBUG _get_rewards] eval_no_terminate = {_eval_no_terminate}")
+            print(f"[FrankaSharpaEnv] eval_no_terminate = {_eval_no_terminate}")
             self._eval_no_terminate_logged = True
         self.reward_execute[:], self.reset_buf[:], self.success_buf[:], self.failure_buf[:], reward_dict = compute_imitation_reward(
             self.reset_buf,
@@ -1519,13 +1448,9 @@ class FrankaSharpaEnv(DirectRLEnv):
             bool(getattr(self.cfg, 'premature_contact_enabled', True)),
             bool(getattr(self.cfg, 'eval_no_terminate', False)),
         )
-        # Eval-mode mask applied OUTSIDE the @torch.jit.script function:
-        # JIT caches the compiled function and silently ignores newly-added
-        # bool params in some setups. Apply the mask here so it always takes
-        # effect. When True: zero reset_buf and failure_buf so the only way
-        # episodes end is via env's `time_out = episode_length_buf >= max_length`
-        # in _get_dones. Also force success_buf to 1 at time-out boundary
-        # (progress >= max_length - 3) to keep the success metric meaningful.
+        # Eval-mode mask, applied outside the @torch.jit.script function so it
+        # takes effect even with a cached compiled function: zero reset_buf so
+        # episodes end only via `time_out` in _get_dones.
         if _eval_no_terminate:
             self.reset_buf[:] = 0   # don't terminate, let time_out handle it
 
@@ -1547,8 +1472,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         if 'succ/strict' in reward_dict:
             self.extras['succeeded_strict_per_env'] = reward_dict['succ/strict']
         self.extras['failed_per_env'] = self.failure_buf.float()
-        # Scalars kept for backward compatibility with existing log keys. Do not
-        # read these as episode rates.
+        # Scalar means for logging. Do not read these as episode rates.
         self.extras['succeeded'] = self.success_buf.float().mean()
         self.extras['failed_execute'] = self.failure_buf.float().mean()
         
@@ -1579,7 +1503,6 @@ class FrankaSharpaEnv(DirectRLEnv):
         """Get current hand states for reward computation."""
         self._refresh_lab()
         base_state = self.base_state
-        # base_state[:, :3] = self.base_pos
         # Get joint positions and velocities
         q = self.hand_dof_pos
         dq = self.hand_dof_vel
@@ -1701,9 +1624,9 @@ class FrankaSharpaEnv(DirectRLEnv):
         """Bin the trajectory into N fractional bins, sample reset frames from a
         smoothed failure-biased distribution, and return per-env seq_idx.
 
-        Pipeline (extends whole_body_tracking.commands.MotionCommand._adaptive_sampling
-        with warmup + optional curriculum window so early-training reward
-        doesn't tank when a few bad bins immediately collapse the pmf):
+        Pipeline (extends whole_body_tracking's MotionCommand._adaptive_sampling
+        with a warmup and an optional curriculum window, so a few early failing
+        bins cannot collapse the pmf):
 
           0. WARMUP. For the first `warmup_steps` env steps, force pmf uniform
              across the curriculum window (or full range if curriculum off).
@@ -1916,9 +1839,8 @@ class FrankaSharpaEnv(DirectRLEnv):
         self.proprio_hist_buf[env_ids] = 0
         self.at_reset_buf[env_ids] = 1
 
-        # maniptrans style
         # Adaptive trajectory-fraction sampling — replaces curriculum / uniform
-        # random when enabled. Done first so we don't pay cost of the other paths.
+        # random when enabled.
         # The helper ALSO records the resetting envs' progress bins (for failures
         # only) and runs the EMA update; on first call after init,
         # bin_failed_count is all zero so the smoothed pmf is uniform.
@@ -2122,7 +2044,7 @@ class FrankaSharpaEnv(DirectRLEnv):
                 obj_default_state[buf_ids, :3] = buf_obj_state[buf_ids, :3]
                 obj_default_state[buf_ids, 3:13] = buf_obj_state[buf_ids, 3:13]
 
-            # Eval-time object position perturbation (sim2real robustness study).
+            # Object xy position perturbation at reset.
             # When env._eval_perturb_obj_xy = δ is set (scripts/eval.py
             # --perturb_obj_xy), inject a uniform(-δ,+δ) xy offset into obj_pos
             # at reset, to test dependence on the object being at the demo position.
@@ -2169,21 +2091,19 @@ class FrankaSharpaEnv(DirectRLEnv):
             self.aux_object.write_root_state_to_sim(aux_default_state, env_ids)
 
 
-        # ---- Init-curriculum debug: print first 3 resets so we can verify
-        # that seq_idx sampling, demo frame-0 arm pose, and downstream writes
-        # behave the same regardless of init_curriculum_enabled. Only the first
-        # 3 calls trigger to avoid log spam.
+        # ---- Reset diagnostics for the first 3 resets: seq_idx sampling and
+        # the sampled retargeted arm pose.
         if not hasattr(self, '_debug_reset_count'):
             self._debug_reset_count = 0
         if self._debug_reset_count < 3 and len(env_ids) > 0:
             curr_on = bool(getattr(self.cfg, 'init_curriculum_enabled', False))
             sl = self.demo_data["seq_len"][env_ids]
-            print(f"\n[reset_debug #{self._debug_reset_count}] curriculum={curr_on}  "
+            print(f"\n[reset #{self._debug_reset_count}] curriculum={curr_on}  "
                   f"random_state_init={self.random_state_init}  num_resets={len(env_ids)}")
             print(f"  seq_len     min/max/mean = {sl.min().item()}/{sl.max().item()}/{sl.float().mean().item():.1f}")
             print(f"  seq_idx     min/max/mean = {seq_idx.min().item()}/{seq_idx.max().item()}/{seq_idx.float().mean().item():.1f}")
             print(f"  seq_idx/seq_len mean    = {(seq_idx.float() / sl.float().clamp(min=1)).mean().item():.3f}")
-            # Sanity: any zeros / NaN in retargeted opt_arm_joint_pos for the sampled frames?
+            # Check for all-zero / NaN retargeted opt_arm_joint_pos in the sampled frames.
             sampled_arm = self.demo_data["opt_arm_joint_pos"][env_ids, seq_idx]
             print(f"  sampled opt_arm_joint_pos shape = {tuple(sampled_arm.shape)}")
             print(f"  sampled arm pose mean/std       = {sampled_arm.mean().item():+.4f} / {sampled_arm.std().item():.4f}")
@@ -2265,22 +2185,12 @@ class FrankaSharpaEnv(DirectRLEnv):
         self.object_angvel = self.object.data.root_ang_vel_w
 
         # hand base state
-        # self.base_state = self.hand.data.root_state_w
-        # self.base_pos = self.base_state[:, :3] - self.scene.env_origins
-        # self.base_quat = self.base_state[:, 3:7]
-        # self.base_lin_vel = self.base_state[:, 7:10]
-        # self.base_ang_vel = self.base_state[:, 10:13]
-
         # Use the IK end-effector body for wrist state (must match IK controller's EE frame)
         ee_body_idx = self.arm_robot_entity_cfg.body_ids[0]
         self.base_pos = self.hand.data.body_pos_w[:, ee_body_idx] - self.scene.env_origins
         self.base_quat = self.hand.data.body_quat_w[:, ee_body_idx]
         self.base_lin_vel = self.hand.data.body_lin_vel_w[:, ee_body_idx]
         self.base_ang_vel = self.hand.data.body_ang_vel_w[:, ee_body_idx]
-        # self.base_pos = self.hand.data.body_pos_w[:, self.wrist_body_idx] - self.scene.env_origins
-        # self.base_quat = self.hand.data.body_quat_w[:, self.wrist_body_idx]
-        # self.base_lin_vel = self.hand.data.body_lin_vel_w[:, self.wrist_body_idx]
-        # self.base_ang_vel = self.hand.data.body_ang_vel_w[:, self.wrist_body_idx]
         # Observation noise injection for sim2real robustness (only during training, not deploy)
         if not getattr(self, '_is_deploy_env', False):
             joint_noise_std = getattr(self.cfg, 'obs_joint_pos_noise', 0.0)
@@ -2301,10 +2211,9 @@ class FrankaSharpaEnv(DirectRLEnv):
         self.base_state = torch.cat([self.base_pos, self.base_quat, self.base_lin_vel, self.base_ang_vel], dim=-1)
 
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
-        # Save success/failure counts BEFORE super().step() which calls _reset_idx and clears them
-        # (success_buf/failure_buf are set in _get_rewards, then cleared in _reset_idx)
-        # We can't read them here either because _get_rewards hasn't run yet.
-        # Instead, we rely on extras['succeeded'] and extras['failed_execute'] set in _get_rewards.
+        # success_buf/failure_buf are set in _get_rewards and cleared in _reset_idx,
+        # both inside super().step(); episode stats are read from
+        # extras['succeeded'] / extras['failed_execute'] set in _get_rewards.
 
         # Call parent step method - it returns (obs_dict, rew, terminated, truncated, extras)
         obs_dict, rew, terminated, truncated, extras = super().step(action)
@@ -2424,8 +2333,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         target_joints_pos = indicing(self.demo_data["target_joints_pos"], future_indices).reshape(nE, nF, -1, 3)
 
         cur_joint_pos = self.hand.data.body_pos_w[:, self.hand_body_indices[1:]] - self.scene.env_origins.unsqueeze(1)
-        # cur_joint_pos = torch.stack(cur_joint_pos, dim=1)  # [B, n_joints-1, 3]
-        delta_joints_pos = (target_joints_pos - cur_joint_pos[:, None]).reshape(self.num_envs, -1) # check this
+        delta_joints_pos = (target_joints_pos - cur_joint_pos[:, None]).reshape(self.num_envs, -1)
         
         target_joints_vel = indicing(self.demo_data["target_joints_velocity"], future_indices).reshape(nE, nF, -1, 3)
         cur_joint_vel = self.hand.data.body_lin_vel_w[:, self.hand_body_indices[1:]]
@@ -2534,9 +2442,9 @@ class FrankaSharpaEnv(DirectRLEnv):
         # Update observation history buffer for ProprioAdapt
         # Store first observation_space//3 dimensions (ProprioAdaptTConv expects this)
         # This includes proprioception_obs (76 dims) + part of target_obs
-        obs_part_for_hist = obs_buf[:, :self.proprio_hist_dim]  # [num_envs, 194]
+        obs_part_for_hist = obs_buf[:, :self.proprio_hist_dim]  # [num_envs, proprio_hist_dim]
         prev_obs_buf = self.obs_buf_lag_history[:, 1:].clone()
-        cur_obs_buf = obs_part_for_hist.unsqueeze(1)  # [num_envs, 1, 194]
+        cur_obs_buf = obs_part_for_hist.unsqueeze(1)  # [num_envs, 1, proprio_hist_dim]
         self.obs_buf_lag_history[:] = torch.cat([prev_obs_buf, cur_obs_buf], dim=1)
         
         # Extract proprioceptive history for ProprioAdapt
@@ -2548,7 +2456,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         at_reset_env_ids = self.at_reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(at_reset_env_ids) > 0:
             # Fill history with current observation for reset environments
-            reset_obs = obs_part_for_hist[at_reset_env_ids]  # [num_reset, 194]
+            reset_obs = obs_part_for_hist[at_reset_env_ids]  # [num_reset, proprio_hist_dim]
             self.obs_buf_lag_history[at_reset_env_ids] = reset_obs.unsqueeze(1).repeat(1, self.obs_buf_lag_history.shape[1], 1)
             self.proprio_hist_buf[at_reset_env_ids] = reset_obs.unsqueeze(1).repeat(1, self.cfg.prop_hist_len, 1)
 
@@ -2558,7 +2466,6 @@ class FrankaSharpaEnv(DirectRLEnv):
         priv_obs_values = [self.object_pos, self.object_rot, self.object_velocities]
 
         self.priv_info_buf[:, 27:40] = torch.cat(priv_obs_values, dim=-1)
-        # TODO tip forces not enabled now
         
         return obs_buf
     
@@ -2629,11 +2536,6 @@ class FrankaSharpaEnv(DirectRLEnv):
         self.total_rew_buf = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.reward_dict = {}
 
-        # self.dexhand_handles = {} # dexhand_handles[body_name] = body_index
-        # for name in self.hand.body_names:
-        #     ids, _ = self.hand.find_bodies(name)
-        #     self.dexhand_handles[name] = ids[0]
-
         wrist_body_name = self.dexhand.to_dex("wrist")[0]
         self.wrist_body_idx = self.hand.body_names.index(wrist_body_name)
         
@@ -2673,9 +2575,7 @@ class FrankaSharpaEnv(DirectRLEnv):
         default_pose = torch.ones(self.num_hand_dofs, device=self.device) * np.pi / 36
         self.dexhand_default_dof_pos = default_pose
 
-        # Store DOF speed limits for reset
-        # use the hand ids
-        # self._dexhand_dof_speed_limits = self.hand.data.joint_vel_limits[:, self.hand_joint_indices].clone()
+        # Store DOF speed limits for reset (actuated hand joints)
         self._dexhand_dof_speed_limits = self.hand.data.joint_vel_limits[:, self.actuated_dof_indices].clone()
 
         self.arm_joint_pos_des_prev = torch.zeros((self.num_envs, len(self.arm_joint_indices)), device=self.device)
@@ -3189,8 +3089,7 @@ class FrankaSharpaEnv(DirectRLEnv):
                     f"[WEIGHT_IDX] resolved vs hardcoded disagree on: "
                     f"{[(k, r, l) for k, r, l in _mismatches]}. "
                     f"URDF / USD body order probably changed — update the "
-                    f"hardcoded `weight_idx` in sharpa.py, OR (preferred) "
-                    f"remove it now that the by-name resolver is trustworthy."
+                    f"hardcoded `weight_idx` in sharpa.py."
                 )
             print(f"[WEIGHT_IDX] by-name resolver matches hardcoded indices "
                   f"for all {len(self.dexhand_weight_idx)} keys ✓")
@@ -3355,7 +3254,6 @@ def compute_imitation_reward(
     target_eef_quat = target_states["wrist_quat"]
     diff_eef_pos = target_eef_pos - current_eef_pos
     diff_eef_pos_dist = torch.norm(diff_eef_pos, dim=-1)
-    # print(f"DEBUG: target eef pos: {target_eef_pos}, current eef pos: {current_eef_pos}, diff_eef_pos_dist: {diff_eef_pos_dist}")
 
     current_eef_vel = states["base_state"][:, 7:10]
     current_eef_ang_vel = states["base_state"][:, 10:13]
@@ -3473,7 +3371,7 @@ def compute_imitation_reward(
     reward_power = torch.exp(-0.01 * target_states["power"])
     reward_wrist_power = torch.exp(-2 * target_states["wrist_power"])
     reward_action_rate_l1 = torch.exp(-0.05 * states["action_rate_l1"])
-    reward_action_rate_l2 = torch.exp(-0.05 * states["action_rate_l2"]) # -0.01
+    reward_action_rate_l2 = torch.exp(-0.05 * states["action_rate_l2"])
 
     penal_action_rate_l2 = states["action_rate_l2"]
 
@@ -3489,8 +3387,7 @@ def compute_imitation_reward(
     target_obj_quat = target_states["manip_obj_quat"]
     diff_obj_pos = target_obj_pos - current_obj_pos
     diff_obj_pos_dist = torch.norm(diff_obj_pos, dim=-1)
-    reward_obj_pos = torch.exp(-80 * diff_obj_pos_dist) # this is small TODO
-    # print(f"debug: current obj pos: {current_obj_pos}, target obj pos: {target_obj_pos}")s
+    reward_obj_pos = torch.exp(-80 * diff_obj_pos_dist)
     
     diff_obj_rot = quat_mul(target_obj_quat, quat_conjugate(current_obj_quat))
     diff_obj_rot_angle = quat_to_angle_axis(diff_obj_rot)[0]
@@ -3511,11 +3408,10 @@ def compute_imitation_reward(
     # Finger tip force reward
     finger_tip_force = target_states["tip_force"] # last contact force in sim
     finger_tip_distance = target_states["tips_distance"]
-    contact_range = [0.005, 0.015] # TODO check value [0.02, 0.03]
+    contact_range = [0.005, 0.015]  # tip distance (m): full weight below [0], zero above [1]
     finger_tip_weight = torch.clamp(
         (contact_range[1] - finger_tip_distance) / (contact_range[1] - contact_range[0]), 0, 1
     )
-    # finger_tip_force_masked = finger_tip_force * finger_tip_weight[:, None]
     finger_tip_force_masked = finger_tip_force * finger_tip_weight[:, :, None]
     
     reward_finger_tip_force = torch.exp(-1 * (1 / (torch.norm(finger_tip_force_masked, dim=-1).sum(-1) + 1e-5)))
@@ -3562,12 +3458,12 @@ def compute_imitation_reward(
     # Penalize high arm joint accelerations (velocity changes)
     arm_joint_acc_penalty = torch.norm(states["arm_joint_acc"], dim=-1).mean(dim=-1)
     
-    # # Wrist velocity and acceleration penalties (to reduce jitter)
-    # # Penalize high wrist linear velocities
+    # Wrist velocity and acceleration penalties (to reduce jitter)
+    # Penalize high wrist linear velocities
     wrist_lin_vel_penalty = torch.norm(states["wrist_lin_vel"], dim=-1)
     # Penalize high wrist angular velocities
     wrist_ang_vel_penalty = torch.norm(states["wrist_ang_vel"], dim=-1)
-    # # Penalize high wrist linear accelerations (velocity changes)
+    # Penalize high wrist linear accelerations (velocity changes)
     wrist_lin_acc_penalty = torch.norm(states["wrist_lin_acc"], dim=-1)
     # Penalize high wrist angular accelerations (velocity changes)
     wrist_ang_acc_penalty = torch.norm(states["wrist_ang_acc"], dim=-1)
@@ -3579,14 +3475,12 @@ def compute_imitation_reward(
     reward_wrist_ang_vel = torch.exp(-0.5 * wrist_ang_vel_penalty)
     reward_wrist_lin_acc = torch.exp(-0.01 * wrist_lin_acc_penalty)
     reward_wrist_ang_acc = torch.exp(-0.01 * wrist_ang_acc_penalty)
-    # print(f"DEBUG: wrist_lin_acc_penalty: {wrist_lin_acc_penalty}, reward_wrist_lin_acc: {reward_wrist_lin_acc}, wrist_ang_acc_penalty: {wrist_ang_acc_penalty}, reward_wrist_ang_acc: {reward_wrist_ang_acc}")
-    # print(f"DEBUG: wrist_lin_vel_penalty: {wrist_lin_vel_penalty}, reward_wrist_lin_vel: {reward_wrist_lin_vel}, wrist_ang_vel_penalty: {wrist_ang_vel_penalty}, reward_wrist_ang_vel: {reward_wrist_ang_vel}")
     survival_reward_scale = 1.0  # Scale factor for survival reward
     survival_reward = survival_reward_scale * (running_progress_buf.float() / max_length.clamp(min=1.0))
     
     # Arm collision detection with table (table_surface_z defaults to
     # dexx.deploy_config.TABLE_SURFACE_Z).
-    # Hardcoded collision threshold: 5cm
+    # Collision margin above the table surface: 5cm
     arm_collision_threshold = 0.05
     
     # Check if any arm body height is below table surface + threshold
@@ -3667,9 +3561,9 @@ def compute_imitation_reward(
         fail_l1 = diff_level_1_pos_dist
         fail_l2 = diff_level_2_pos_dist
 
-    # Per-cause failure masks (logged to reward_dict for wandb breakdown).
+    # Per-cause failure masks (logged to reward_dict as a per-cause breakdown).
     # A single env may trigger multiple causes — sum of fail/* fractions
-    # can exceed fail/any. Use this to see WHICH threshold is killing eps.
+    # can exceed fail/any.
     fail_hand_tracking = (
         (
             (fail_thumb > 0.4 / 0.6 * scale_factor)
@@ -3688,21 +3582,15 @@ def compute_imitation_reward(
         quat_mul(target_states["manip_obj_quat"], quat_conjugate(states["manip_obj_quat"]))
     )[0]
     # Trajectory-tracking failure thresholds:
-    #   pos: |obj − demo_current| > 8cm
+    #   pos: |obj − demo_current| > ~12cm (0.03/0.243 * scale^3)
     #   rot: |Δrot|                > ~123° (30/0.243 * scale^3)
     fail_obj_pos = (diff_obj_pos_dist > 0.03 / 0.243 * scale_factor**3) & (running_progress_buf >= 20)
     fail_obj_rot = (
         (diff_obj_rot_angle.abs() / 3.141592653589793 * 180 > 30 / 0.243 * scale_factor**3)
         & (running_progress_buf >= 30)
     )
-    # if premature_contact_enabled:
-    #     fail_premature_contact = (
-    #         torch.any((finger_tip_distance < premature_contact_dist_threshold) & ~(target_states["tip_contact_state"].any(1)), dim=-1)
-    #         & (running_progress_buf >= premature_contact_progress_threshold)
-    #     )
-    # else:
-    #    
-    # 
+    # Premature-contact failure is not applied: the mask is always False and
+    # the premature_contact_* arguments are unused.
     fail_premature_contact = torch.zeros_like(running_progress_buf, dtype=torch.bool)
 
     failed_execute = (
@@ -3716,15 +3604,15 @@ def compute_imitation_reward(
 
     # Eval infra: when set, suppress ALL terminations so policy rolls to
     # episode_length_buf >= max_length. Per-cause fail/* metrics are still
-    # logged in reward_dict for diagnostic breakdown. Use for offline eval +
-    # debug only — DO NOT enable during training.
+    # logged in reward_dict for diagnostic breakdown. Use for offline eval
+    # only — DO NOT enable during training.
     if eval_no_terminate:
         failed_execute = torch.zeros_like(failed_execute)
 
     # ---- Final-frame "success" rewards ----------------------------------
     # `final_obj_pos / final_obj_quat / final_K_obj_pos` come from
     # `_get_rewards`, computed once per step from `obj_trajectory[:, seq_len-1]`
-    # (and the last K frames). Two reward terms:
+    # (and the last K frames). Three reward terms:
     #   reward_final_pos      — exp(-α·||cur − final||)            full credit at endpoint
     #   reward_final_rot      — exp(-α·|Δrot|)                     orientation at endpoint
     #   reward_final_approach — exp(-α·min_k ||cur − last_K[k]||)  partial credit near endpoint
@@ -3737,8 +3625,8 @@ def compute_imitation_reward(
         and "final_obj_quat" in target_states
         and "final_K_obj_pos" in target_states
     )
-    # We compute the reward terms whenever final-frame targets are available
-    # so the diag/ metrics show up in wandb even when weights are still 0.
+    # Computed whenever final-frame targets are available so the diag/
+    # metrics are logged even when the weights are 0.
     if has_final:
         dist_to_final = torch.norm(
             target_states["final_obj_pos"] - states["manip_obj_pos"], dim=-1
@@ -3854,8 +3742,7 @@ def compute_imitation_reward(
         strict_available = torch.ones_like(succeeded.float())
     else:
         # No final-frame target: strict is not computable. Report zero rather
-        # than silently falling back to `succeeded` — a flat zero line is a
-        # visible anomaly, a loose number wearing a strict label is not.
+        # than falling back to `succeeded`.
         succeeded_strict = torch.zeros_like(succeeded)
         strict_available = torch.zeros_like(succeeded.float())
 

@@ -21,6 +21,6 @@
     1.57,
     0.0
   ],
-  "description": "Pure sinusoid on joint 2 (shoulder pitch). Chirp showed +70ms lag here \u2014 check if it's real or coupling artifact.",
+  "description": "Pure sinusoid on joint 2 (shoulder pitch). Separates single-joint lag from chirp coupling.",
   "safety_checked": true
 }

@@ -10,13 +10,13 @@ configuration. Only the 7 arm joints move; the hand is left untouched.
 
 Talks to the NUC via PolymetisArmClient (ZMQ -> polymetis_joint_bridge.py ->
 RobotInterface joint impedance), identical transport to
-`replay_motion_polymetis.py`.
+`tools/sysid/replay_motion_polymetis.py`.
 
-Prereqs (NUC, polymetis-local env):
-    conda activate polymetis-local && python deploy/polymetis_joint_bridge.py
+Prereqs (on the NUC, Polymetis env):
+    conda activate <polymetis_env> && python deploy/polymetis_joint_bridge.py
     # and make sure NO other controller policy is running.
 
-Usage (training PC, dexmanip env):
+Usage (inference PC):
     python deploy/move_to_frame_polymetis.py \
         --ip <NUC_IP> \
         --pkl data/retargeting/robotool_batch/mano2sharpa_rh/0416_grasp/cube_small_2@0.pkl \
@@ -39,7 +39,7 @@ sys.path.insert(0, ".")
 ARM_JOINT_NAMES = ["fr3_joint1", "fr3_joint2", "fr3_joint3", "fr3_joint4",
                    "fr3_joint5", "fr3_joint6", "fr3_joint7"]
 
-# FR3 position limits (same as replay_motion_polymetis.py)
+# FR3 joint position limits (rad)
 FR3_JOINT_POS_LIMITS = np.array([
     [-2.7437, 2.7437], [-1.7837, 1.7837], [-2.9007, 2.9007],
     [-3.0421, -0.1518], [-2.8065, 2.8065], [0.5445, 4.5169], [-3.0159, 3.0159],

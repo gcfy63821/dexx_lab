@@ -209,7 +209,6 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     # Proprioception: q(22) + cos_q(22) + sin_q(22) + base_state(10) = 76
     # Target: depends on obs_future_length and number of joints
     # For obs_future_length=1: wrist states (3+3+3+4+4+3+3) + joint states (n_joints*3*3)
-    # Actual dimension: 390 (calculated from runtime)
     observation_space = 583
     prop_hist_len = 30  # Required for ProprioAdapt: Conv1d needs at least 30 steps
     priv_info_dim = 40
@@ -234,7 +233,7 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     use_pid_control: bool = False  # Whether to use Diff IK for wrist (action: pos_error(3)+rot_error(6)=9 dims)
     use_osc_control: bool = False  # Whether to use OSC (Operational Space Control) for arm (action: pos_error(3)+rot_error(6)=9 dims)
     actions_moving_average: float = 0.4  # Moving average coefficient for hand/wrist actions
-    arm_actions_moving_average: float = 0.15  # Separate (more aggressive) EMA for arm joint_pos_des to match real Franka impedance ~50ms LP bandwidth; sim2real arm-shake mitigation
+    arm_actions_moving_average: float = 0.15  # Separate (more aggressive) EMA for arm joint_pos_des to match real Franka impedance ~50ms LP bandwidth
     use_joint_pos_control: bool = False  # Whether to use absolute joint position control for arm (action: joint_pos(7) dims)
     use_joint_delta_control: bool = True  # Whether to use joint delta control for arm (action: joint_delta(7) dims, recommended for sim2real)
     joint_delta_scale: float = 0.2  # Scale for arm joint-delta actions (rad per step at 30Hz)
@@ -259,7 +258,7 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     # dataset default: data/retargeting/robotool_batch/mano2{dexhand}.
     robotool_batch_retarget_root: str = ""
 
-    translation_scale: float = 0.02  # Scale for translation actions (±2cm, matching UWLab OSC scale)
+    translation_scale: float = 0.02  # Scale for translation actions (±2cm)
     orientation_scale: float = 0.05  # Scale for orientation actions (±0.05 rad ≈ ±3°)
 
     # Gravity compensation in sim (real Franka has built-in gravity comp, sim PD does not)
@@ -295,7 +294,7 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     
     # Reset parameters 
     random_state_init: bool = True  # Whether to randomly initialize state
-    # When random_state_init is False, default is demo frame 0. Set this to start every reset at a fixed demo index (clamped per-env to seq_len-1). Used for debugging a deploy start frame.
+    # When random_state_init is False, default is demo frame 0. Set this to start every reset at a fixed demo index (clamped per-env to seq_len-1), e.g. to reproduce a deploy start frame.
     fixed_reset_demo_frame: int | None = None
     loop_trajectory: bool = False  # Whether to loop reference trajectory (reset only on max_episode_length or terminate)
 
@@ -316,15 +315,14 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     adaptive_init_min_progress: int = 10  # Minimum running_progress_buf before capture
 
     # Adaptive trajectory-fraction sampling — biases reset frames toward bins
-    # where the policy currently fails most. Inspired by whole_body_tracking
-    # commands.py adaptive bin sampler. Operates on normalized [0, 1) trajectory
+    # where the policy currently fails most (adaptive bin sampler, as in
+    # whole_body_tracking). Operates on normalized [0, 1) trajectory
     # fraction so it works with multi-data_idx envs (different per-env seq_len).
     #
     # Behavior:
     #   - During the first `warmup_steps` env steps, the sampler is FORCED uniform
-    #     (equivalent to random_state_init baseline). Without this, the very
-    #     first failures on a random policy collapse the pmf onto a few hard
-    #     bins, the policy never sees easy frames, and reward tanks.
+    #     (equivalent to random_state_init). Otherwise the first failures of a
+    #     random policy collapse the pmf onto a few hard bins.
     #   - When `compose_with_curriculum=True` AND `init_curriculum_enabled=True`,
     #     bins below the curriculum's `earliest_frac` are masked out — adaptive
     #     samples by failure bias *inside* the curriculum window so you keep
@@ -337,9 +335,8 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     adaptive_sampling_kernel_size: int = 3      # smoothing kernel size (non-causal)
     adaptive_sampling_lambda: float = 0.8       # geometric kernel decay
     # uniform_ratio: total uniform mass mixed into the pmf (split across bins).
-    # 0.5 means a meaningful 50/50 floor against failure spikes — much more
-    # forgiving than the reference's 0.1 which lets a single hot bin take ~100%
-    # of probability mass once EMA stabilizes.
+    # 0.5 gives a 50/50 floor so a single hot bin cannot take all of the
+    # probability mass.
     adaptive_sampling_uniform_ratio: float = 0.5
     # alpha: EMA mixing factor for bin_failed_count.
     # 0.0005 → effective window ~2000 resets, slow enough that single bad
@@ -587,7 +584,7 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     # closely; this DR covers residual multi-joint coupling and real hardware
     # variability, so ±20% is enough.
     randomize_arm_pd_gains: bool = True
-    randomize_arm_p_scale_lower: float = 0.80   # ±20%, sim2real shake mitigation
+    randomize_arm_p_scale_lower: float = 0.80   # ±20%
     randomize_arm_p_scale_upper: float = 1.20
     randomize_arm_d_scale_lower: float = 0.80
     randomize_arm_d_scale_upper: float = 1.20
@@ -654,18 +651,14 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
 
     # Emergency stop safety limits (deploy only)
     emergency_stop_enabled: bool = True
-    # 2.5 rad/s leaves a buffer above the policy's natural peak (~2.0 rad/s
-    # at 30Hz); a 2.0 limit would trip false e-stops on snappy motions.
-    # FR3 hardware limit is 2.62 rad/s; 2.5 still leaves a safety margin to that.
+    # Sits above the policy's typical peak arm joint speed (to avoid false
+    # e-stops) and below the FR3 hardware limit of 2.62 rad/s.
     arm_joint_vel_limit: float = 2.5       # rad/s, max arm joint velocity before e-stop
     arm_joint_delta_limit: float = 0.3     # rad, max single-step arm joint change before e-stop
-    # 1.5 rad covers thumb_IP demo-target vs real-current gap right after reset
-    # (target ~1.31 rad = SDK upper limit, real hand may not reach it during the
-    # reset settle window before the first rollout step → false e-stop).
-    # The check semantics is target_command - measured_angle, so this is
-    # really a "policy is asking for something the hand can't physically
-    # reach yet" detector, not an instantaneous step-jump cap. 1.5 leaves
-    # the loud-mistake band (>2 rad) intact while tolerating reset slop.
+    # Checked as target_command - measured_angle, so it detects "commanded a
+    # pose the hand cannot reach yet", not a per-step jump. 1.5 rad tolerates
+    # the target/measured gap right after reset (e.g. thumb_IP near its upper
+    # limit) while still catching gross errors (>2 rad).
     hand_joint_delta_limit: float = 1.5    # rad, max single-step hand joint change before e-stop
     # Reset route to the demo start. After a rollout the arm is already on the
     # demo trajectory, so the via-home detour is a slow round trip; going
@@ -700,11 +693,8 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     #   reward_final_rot      = exp(-α_rot · |Δrot|)
     #   reward_final_approach = exp(-α_pos · min_k ||cur_obj − last_K[k]||)
     #
-    # Larger weight + slower α-decay + wider window combine to give a
-    # denser final-pose signal that propagates back through the trajectory,
-    # at some cost on mid-grasp stages (the policy becomes more goal-fixated).
-    # If grasp/manipulation tasks suffer, dial pos_weight back to 20 first,
-    # or shrink window to 7.
+    # Larger weight, slower α-decay and a wider window give a denser
+    # final-pose signal but make the policy more goal-fixated mid-grasp.
     success_pos_weight: float = 30.0
     success_rot_weight: float = 5.0
     success_approach_weight: float = 1.0
@@ -721,15 +711,12 @@ class FrankaSharpaEnvCfg(DirectRLEnvCfg):
     # 0.0 = disabled; 0.5 = modest, below fingertip-force weight 3.0.
     no_slip_weight: float = 0.5
 
-    # ---- Premature-contact failure (gates frame-0 reaching) -----------
-    # When enabled, an episode fails if any fingertip <0.005m from object
-    # AND demo target says no-contact AND running_progress >= 50. This can kill
-    # frame-0 reaching episodes because the policy approaches faster than
-    # demo and triggers fingertip-touch before demo's expected contact frame.
-    # Knobs:
-    #   premature_contact_enabled = False    → fully disable the check
-    #   premature_contact_dist_threshold     → lower = stricter
-    #   premature_contact_progress_threshold → delay activation
+    # ---- Premature-contact failure (not applied) ----------------------
+    # Would fail an episode when a fingertip is <dist_threshold from the object
+    # while the demo has no contact, after progress_threshold steps. The check
+    # is not applied in compute_reward (fail/premature_contact is always 0), so
+    # these knobs currently have no effect; the shipped checkpoints were trained
+    # without it.
     premature_contact_enabled: bool = True
     premature_contact_dist_threshold: float = 0.005
     premature_contact_progress_threshold: int = 50

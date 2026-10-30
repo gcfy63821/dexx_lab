@@ -17,13 +17,11 @@ check sees it.
 Why: the deploy env reads wrist obs from either:
   (a) /franka_wrist_state Float32MultiArray  ← preferred, has velocities
   (b) /franka_robot_state_broadcaster/current_pose  ← PoseStamped fallback,
-      publishes fr3_hand body — different from sim's right_hand_C_MC,
-      causes ~1.7 deg quat residual that is config-dependent (cannot be
-      fixed by a single cfg.wrist_quat_offset).
+      publishes fr3_hand body — different from sim's right_hand_C_MC by a
+      config-dependent rotation (cannot be fixed by a single
+      cfg.wrist_quat_offset).
 
-This publisher emits (a) using the same URDF and same body name sim uses,
-so the sim2real wrist-quat gap collapses to whatever steady-state error
-the arm impedance produces (~few mrad).
+This publisher emits (a) using the same URDF and same body name sim uses.
 
 Format (matches src/dexx/tasks/hand_imitation/deploy/ros2_observation_subscriber.py):
     data[0:3]   pos x, y, z

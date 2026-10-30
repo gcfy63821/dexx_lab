@@ -8,7 +8,6 @@ Hardware handling:
 - Correct joint ordering (hand_joint_indices; see docs/JOINT_ORDERING.md)
 - Arm slow interpolation approach (prevents power_limit_violation)
 - Emergency stop
-- Proper namespace (empty)
 - write_joint_state_to_sim for FK sync
 - _is_deploy_env flag (skip observation noise)
 
@@ -299,9 +298,7 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
         # Tactile UV mapping: taxel (u, v) -> 3D contact position on the pad.
         #
         # These maps are a per-hand CALIBRATION and none ships for the Sharpa
-        # Wave yet. Rather
-        # than fail at construction (which would make the whole deploy path
-        # unimportable), degrade: contact POSITION is disabled and contact FORCE
+        # Wave. Without them contact POSITION is disabled and contact FORCE
         # still works. Point DEXX_TACTILE_MAP_DIR at a directory holding
         # tactileSensor_map_{4F,TH}_point.npy to enable it.
         from dexx.tasks.franka_sharpa.franka_sharpa_env_cfg import get_workspace_root
@@ -376,15 +373,11 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
         if not self._initialize_hand():
             raise RuntimeError("Failed to initialize hand")
         self.real_hand.start()
-        # One-shot dump of SDK parameter keys so we know which knobs are
-        # available (e.g. control rate / tactile rate / response window). The
-        # SDK's set_parameter_safe(json) interface accepts any of these keys —
-        # discovering them is the prerequisite for tuning the hand-side
-        # control loop frequency.
+        # Log the SDK parameter keys (e.g. control rate / tactile rate /
+        # response window); set_parameter_safe(json) accepts any of them.
         self._dump_sdk_param_info()
         # Optional: apply user-requested SDK parameters from cfg.sharpa_sdk_params
-        # (dict[str, value]). Lets us bump the hand control rate without
-        # editing code, e.g. cfg.sharpa_sdk_params = {"control_rate": 200}.
+        # (dict[str, value]), e.g. cfg.sharpa_sdk_params = {"control_rate": 200}.
         self._apply_user_sdk_params()
 
     def _dump_sdk_param_info(self):
@@ -940,8 +933,8 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
             self.get_logger().error(
                 f'E-STOP: non-finite target (arm finite={arm_ok}, hand finite={hand_ok})')
             return True
-        # DEBUG: track how many times we've run the check, so we can dump
-        # per-joint breakdowns for the first few steps after reset.
+        # Count checks since reset; per-joint breakdowns are logged for the
+        # first few.
         self._estop_check_count = int(getattr(self, '_estop_check_count', 0)) + 1
         debug_print_estop = self._estop_check_count <= 3
         if hasattr(self, '_prev_arm_targets_deploy'):
@@ -1040,8 +1033,8 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
         # First-step baseline refresh. Between _reset_idx (which seeds
         # `arm_joint_pos_des_prev` from `franka_joint_pos` in the base env, and
         # `_prev_arm_targets_deploy` from cur_arm_pos here) and the very first
-        # env step, the arm continues impedance-settling toward target_arm_pos
-        # (~0.2 rad on j5). That drift would produce a fake `arm_delta` on
+        # env step, the arm continues impedance-settling toward target_arm_pos.
+        # That drift would produce a fake `arm_delta` on
         # ACTION #1 (base env's MA blends stale
         # `arm_joint_pos_des_prev` with fresh `arm_joint_pos` → arm_des shifts
         # off measured pose; e-stop check then sees arm_des vs stale
@@ -1054,7 +1047,7 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
         first_step = bool(getattr(self, '_first_action_after_reset', False))
         if first_step:
             try:
-                # Snapshot the pre-refresh stale values for the debug print.
+                # Snapshot the pre-refresh values for the log line below.
                 arm_pos_des_prev_before = (
                     self.arm_joint_pos_des_prev[0].detach().cpu().numpy().copy()
                     if hasattr(self, 'arm_joint_pos_des_prev') else None
@@ -1073,8 +1066,7 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
                     self.arm_joint_pos_des_prev = arm_now.clone()
                     self.arm_joint_pos_des = arm_now.clone()
                     self._prev_arm_targets_deploy = arm_now.clone()
-                    # DEBUG: log the snapshot so we can verify the first-step
-                    # baseline refresh is doing what we think it is.
+                    # Log the refreshed baseline and how far it moved.
                     arm_now_np = arm_now[0].detach().cpu().numpy()
                     import numpy as _np
                     drift_arm_pos = (
@@ -1090,7 +1082,7 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
                         if prev_targets_before is not None else float('nan')
                     )
                     self.get_logger().info(
-                        f'[FIRST-STEP-FIX] refreshed arm_now=[{" ".join(f"{v:+.3f}" for v in arm_now_np)}] '
+                        f'[first-step baseline] refreshed arm_now=[{" ".join(f"{v:+.3f}" for v in arm_now_np)}] '
                         f'drift(arm_pos pre→post refresh)={drift_arm_pos:.4f} '
                         f'drift(MA prev → arm_now)={drift_des_prev:.4f} '
                         f'drift(estop prev → arm_now)={drift_estop:.4f}'
@@ -1101,22 +1093,22 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
 
         super()._pre_physics_step(actions)
 
-        # DEBUG: on the first step, also log what super() actually produced so
-        # we can confirm arm_joint_pos_des ≈ arm_now (action=0 in ramp).
+        # On the first step, log what super() produced; arm_joint_pos_des
+        # should be ≈ arm_now (action=0 in ramp).
         if first_step:
             try:
                 arm_des_post = self.arm_joint_pos_des[0].detach().cpu().numpy()
                 arm_pos_after = self.arm_joint_pos[0].detach().cpu().numpy()
                 import numpy as _np
                 self.get_logger().info(
-                    f'[FIRST-STEP-FIX] after super() '
+                    f'[first-step baseline] after super() '
                     f'arm_joint_pos=[{" ".join(f"{v:+.3f}" for v in arm_pos_after)}] '
                     f'arm_joint_pos_des=[{" ".join(f"{v:+.3f}" for v in arm_des_post)}] '
                     f'|des - pos|={_np.abs(arm_des_post - arm_pos_after).max():.4f} '
                     f'|des - prev_target|={_np.abs(arm_des_post - self._prev_arm_targets_deploy[0].detach().cpu().numpy()).max():.4f}'
                 )
             except Exception as e:
-                self.get_logger().warn(f'[first-step-fix post-super log] {e}')
+                self.get_logger().warn(f'[first-step baseline, after super()] {e}')
 
     def _apply_action(self) -> None:
         all_joint_targets = torch.zeros((self.num_envs, self.hand.num_joints), device=self.device)
@@ -1309,24 +1301,20 @@ class FrankaSharpaForceDeployEnvV2(FrankaSharpaForceEnv):
 
         # Initialize e-stop prev targets to the MEASURED arm pose, NOT the
         # demo target_arm_pos. After ramp_arm, the real arm settles to
-        # target_arm_pos ± impedance steady-state error (~0.1-0.2 rad on j5).
-        # If we baseline e-stop on target_arm_pos, ACTION #1 shows a fake
-        # ~0.18 rad arm_delta (60% of the 0.3 e-stop margin) even when
-        # --action_ramp_steps fully suppresses policy contribution — because
-        # the base env's MA smoother seeds arm_joint_pos_des from measured
-        # arm_joint_pos (_reset_idx in franka_sharpa_env.py), not target.
-        # Using cur_arm_pos here aligns the baseline so first-step delta ≈ 0.
-        # NOTE: cur_arm_pos here is still stale by the time the FIRST env step
-        # runs (impedance keeps settling during the ~100ms+ between this read
-        # and step). The DEFINITIVE refresh happens in _pre_physics_step on
-        # the first action — `_first_action_after_reset` flag below triggers it.
+        # target_arm_pos ± impedance steady-state error, and the base env's MA
+        # smoother seeds arm_joint_pos_des from the measured arm_joint_pos
+        # (_reset_idx in franka_sharpa_env.py), so a target_arm_pos baseline
+        # would show a fake arm_delta on ACTION #1.
+        # cur_arm_pos is still slightly stale when the first env step runs
+        # (impedance keeps settling); the final refresh happens in
+        # _pre_physics_step on the first action (`_first_action_after_reset`).
         self._prev_arm_targets_deploy = cur_arm_pos.clone()
         self._prev_hand_targets_deploy = hand_joint_pos_sharpa.copy()
         # Trigger a final arm-pose snapshot inside the first _pre_physics_step
         # call AFTER reset (see that override for rationale).
         self._first_action_after_reset = True
-        # Reset e-stop debug counter so we get fresh per-joint logs for the
-        # first 3 _apply_action calls after this reset.
+        # Reset the e-stop check counter: per-joint logs cover the first 3
+        # _apply_action calls after this reset.
         self._estop_check_count = 0
         try:
             cur_hand_states = self.real_hand.get_states()

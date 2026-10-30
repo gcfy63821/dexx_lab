@@ -12,16 +12,13 @@ from __future__ import annotations
 # Per-joint hand PD gains (N*m/rad, N*m*s/rad), rotor inertia and joint friction.
 #
 # Read out of the vendor's shipped USD and converted from USD's per-DEGREE drive
-# convention (x 180/pi). The vendor's `Right_final.usda` and the public hand
-# release carry identical values, so this is one calibration, not two.
+# convention (x 180/pi).
 #
 # ``armature`` is the load-bearing entry. URDF cannot express rotor inertia, so a
 # URDF-imported hand gets armature=0 -- and these finger links have inertias on
 # the order of 1e-6 kg*m^2, so even a 0.2 N*m torque produces enough angular
 # acceleration to tunnel straight through the PhysX joint limit within one
-# 1/120 s step. Measured with armature=0: 14 of 29 joints outside their limits
-# after 100 zero-action steps, one at 15 rad against a [0, 1.75] limit. With
-# these values: 0 of 29.
+# 1/120 s step.
 #
 # The robot asset is built from the merged URDF (see
 # ``scripts/build_merged_urdf.py``), so these values are the ONLY place the
@@ -58,11 +55,10 @@ ARM_FRICTION = 0.2
 # both and reports the gap. EVERY SHIPPED CHECKPOINT WAS TRAINED AGAINST THESE,
 # so changing them invalidates the checkpoints — it is a retrain, not a tweak.
 #
-# j1-j3 damping (145/135/110) comes from a ROS2 system-ID: higher damping left
-# sim over-damped, lagging the real arm. On Polymetis, j4-j7 still lag the real
-# arm; ARM_KD_POLYMETIS_IT2 below is a re-fit of that damping which reduces the
-# lag in the tools/sysid replay, but training does NOT use it. Adopting it
-# means retraining. Pass it to the replay tools with --arm_kd to compare.
+# j1-j3 damping comes from a ROS2 system-ID. ARM_KD_POLYMETIS_IT2 below is an
+# alternative damping fit against the Polymetis-driven arm; training does NOT
+# use it, so adopting it means retraining. Pass it to the replay tools with
+# --arm_kd to compare.
 ARM_TUNED_KP = {
     "fr3_joint1": 1600.0, "fr3_joint2": 1600.0, "fr3_joint3": 1200.0,
     "fr3_joint4": 800.0,  "fr3_joint5": 500.0,  "fr3_joint6": 300.0,
@@ -74,7 +70,7 @@ ARM_TUNED_KD = {
     "fr3_joint7": 15.0,
 }
 
-# Candidate damping from the Polymetis realignment. Recorded, not active.
+# Alternative damping fit on Polymetis. Not used in training.
 ARM_KD_POLYMETIS_IT2 = {
     "fr3_joint1": 85.0, "fr3_joint2": 135.0, "fr3_joint3": 110.0,
     "fr3_joint4": 25.0, "fr3_joint5": 18.0,  "fr3_joint6": 10.0,
@@ -83,7 +79,7 @@ ARM_KD_POLYMETIS_IT2 = {
 
 # Joint effort/velocity limits are deliberately absent: the merged URDF's own
 # values (hand 0.19-3.3 N*m, arm 87 N*m) are correct and match
-# `Right_final.usda`'s `maxForce` exactly. Overriding them is what lets bad gains act.
+# `Right_final.usda`'s `maxForce` exactly. Do not override them.
 
 
 def hand_gain_dicts(side: str) -> dict:

@@ -13,15 +13,11 @@ path rewritten relative to that file so the tree stays relocatable. Re-run it
 after changing either input; the result is committed, so training needs no build
 step.
 
-The hand is attached to ``fr3_link8`` (the FR3 flange frame) by a fixed joint
-whose default offset is **calibrated against the reference merged asset**
-(``Right_final.usda``, which the demos and extrinsics were made with), not
-chosen: ``xyz = 0 0 0.035`` and ``rpy = 0 0 3pi/4``. Together with this URDF's
-``fr3_link7 -> fr3_link8`` (z=0.107, no rotation) that reproduces the reference
-``fr3_link7 -> right_hand_C_MC`` transform of z=0.142 / yaw=135 deg exactly.
-
-Verified: with these defaults, all 42 link frames the reference asset defines match
-to <= 1e-4 mm and 0 deg at the home pose. Changing them moves the whole hand and
+The hand is attached to ``fr3_link7`` by a fixed joint whose default offset
+is **calibrated against the reference merged asset** the demos and extrinsics
+were made with, not chosen: ``xyz = 0 0 0.142`` and, for the right hand,
+``rpy = 0 0 3pi/4`` (the ``fr3_link7 -> right_hand_C_MC`` transform; the
+massless ``fr3_link8`` flange is pruned). Changing it moves the whole hand and
 invalidates every retargeted demo and every camera extrinsic, so don't — unless
 you re-retarget and re-calibrate.
 """
@@ -56,11 +52,7 @@ OUT_DIR = os.path.join(_ASSETS, "generated")
 # Calibrated fr3_link8 -> hand-root offset, per side. See the module docstring;
 # these are measured against the reference asset, not tuning knobs.
 #
-# The reference asset authors the yaw as literal 2.35619 / -0.785, i.e. a rounded
-# pi/4. We use the exact analytic values instead: for the right hand that is a
-# 4.5e-6 rad correction (nothing), for the left hand 4.0e-4 rad = 0.023 deg,
-# which is 0.06 mm at the fingertip — an order of magnitude under the 1.6 mm
-# retarget solver residual, so no demo is affected.
+# Exact analytic yaws; the reference asset stores them rounded (2.35619 / -0.785).
 DEFAULT_JOINT_XYZ = "0 0 0.142"   # fr3_link7 -> hand root
 DEFAULT_JOINT_RPY = {
     "right": "0 0 2.356194490192345",   # +3*pi/4  = +135 deg yaw

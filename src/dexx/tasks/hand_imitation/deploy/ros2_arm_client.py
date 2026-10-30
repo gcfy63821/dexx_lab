@@ -1,6 +1,6 @@
 """ROS2 arm backend for the Sharpa deploy env (optional, experimental).
 
-Wraps the research ROS2 comm layer — ``ROS2ObservationSubscriber`` (arm and
+Wraps the ROS2 comm layer — ``ROS2ObservationSubscriber`` (arm and
 wrist state) and ``ROS2ActionPublisher`` (joint targets on
 ``/teleop_joint_commands``) spun on one background executor — behind the same
 interface as ``PolymetisArmClient``, so the deploy env does not know which

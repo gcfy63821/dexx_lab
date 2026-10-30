@@ -88,14 +88,14 @@ class ActorCritic(nn.Module):
 
     @torch.no_grad()
     def act(self, obs_dict):
-        # used specifically to collection samples during training
-        # it contains exploration so needs to sample from distribution
+        # used to collect samples during training: samples from the
+        # distribution for exploration
         mu, logstd, value, _, _ = self._actor_critic(obs_dict)
         sigma = torch.exp(logstd)
         distr = torch.distributions.Normal(mu, sigma)
         selected_action = distr.sample()
         result = {
-            'neglogpacs': -distr.log_prob(selected_action).sum(1), # self.neglogp(selected_action, mu, sigma, logstd),
+            'neglogpacs': -distr.log_prob(selected_action).sum(1),
             'values': value,
             'actions': selected_action,
             'mus': mu,
@@ -124,7 +124,6 @@ class ActorCritic(nn.Module):
                 extrin = self.env_mlp(obs_dict['priv_info'])
                 extrin = torch.tanh(extrin)
                 obs = torch.cat([obs, extrin], dim=-1)
-        # breakpoint()
         x = self.actor_mlp(obs)
         value = self.value(x)
         mu = self.mu(x)

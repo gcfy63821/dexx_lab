@@ -110,9 +110,7 @@ class PPO(object):
 
         self.episode_rewards = AverageScalarMeter(100)
         self.episode_lengths = AverageScalarMeter(100)
-        # Episode success/failure over the last 100 COMPLETED episodes. Without
-        # this the only training-time signal is reward, which can climb while the
-        # task success rate does not move.
+        # Episode success/failure over the last 100 COMPLETED episodes.
         self.episode_successes = AverageScalarMeter(100)
         self.episode_failures = AverageScalarMeter(100)
         # Conservative training proxy; unlike eval strict3, bad inits remain
@@ -571,12 +569,12 @@ class PPO(object):
             for k, v in extras_accum.items():
                 self.extra_info[k] = v / extras_count
 
-        # Debug: print extras summary once every 10 epochs
+        # Print the extras summary once every 10 epochs
         if not hasattr(self, '_extras_debug_counter'):
             self._extras_debug_counter = 0
         self._extras_debug_counter += 1
         if self._extras_debug_counter % 10 == 1:
-            print(f"[EXTRAS DEBUG] horizon={extras_count}, dones_total={self.dones.sum().item():.0f}")
+            print(f"[EXTRAS] horizon={extras_count}, dones_total={self.dones.sum().item():.0f}")
             for k in sorted(self.extra_info.keys()):
                 print(f"  {k}: {self.extra_info[k]:.6f}")
             # Also print what keys are in infos but NOT scalar (filtered out)

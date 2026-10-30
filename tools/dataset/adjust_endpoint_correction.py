@@ -23,7 +23,7 @@ Usage:
       --pkl data/robotool_batch/.../mano_joints_corrected.pkl
 
   python tools/dataset/adjust_endpoint_correction.py \\
-      --task_dir data/robotool_batch/0422_multi
+      --task_dir data/robotool_batch/0416_grasp
 """
 
 import argparse

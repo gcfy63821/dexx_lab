@@ -1,7 +1,6 @@
 """Minimal PPO fine-tune trainer for `ActorCriticPointCloud`.
 
-Deliberately small, but enough to do a useful fine-tune from a DAgger
-initialization. Standard clipped PPO with GAE,
+Fine-tunes from a DAgger initialization. Standard clipped PPO with GAE,
 fp32 forward/backward, AdamW + fused.
 
 Buffer layout (on GPU, since num_envs * horizon * PC size is small):
@@ -15,7 +14,7 @@ Buffer layout (on GPU, since num_envs * horizon * PC size is small):
     actions     (num_envs, horizon, action_dim) fp32
     log_probs / values / rewards / dones / returns / advantages
 
-Total @ 64 envs × 32 horizon: ~50 MB for the PCs + ~5 MB for the rest. Fits.
+Total @ 64 envs × 32 horizon: ~50 MB for the PCs + ~5 MB for the rest.
 """
 from __future__ import annotations
 
@@ -64,8 +63,7 @@ class PPOPointCloudConfig:
     entropy_coef: float = 1e-4
     critic_coef: float = 0.5            # critic is random-init at PPO start and
                                          # raw rewards push critic loss to thousands
-    critic_loss_clip: float = 10.0      # clamp per-sample (values - returns)^2 to keep
-                                         # gradient bounded under bf16 autocast
+    critic_loss_clip: float = 10.0      # not read by the update (critic uses Huber loss)
     grad_clip: float = 1.0
     lr: float = 5e-5
     weight_decay: float = 1e-4
@@ -151,23 +149,14 @@ class PPOPointCloud:
         loaded = 0
         skipped = []
         for k, v in sd.items():
-            # PointCloudStudent uses self.pc_encoder.* and self.mlp.*; map mlp.* → actor_mlp.*
-            # PC encoder name matches.
+            # pc_encoder.* keys match by name; the student's mlp.* layers are
+            # mapped by ordinal below.
             tk = None
             if k.startswith("pc_encoder."):
                 tk = k
             elif k.startswith("mlp."):
-                # mlp.0.weight (Linear) → actor_mlp.mlp.0.weight
-                # mlp.<last>.weight (output head) → mu.weight
-                # Figure out last index from the student.
                 idx = k.split(".")[1]
                 rest = ".".join(k.split(".")[2:])
-                # Student MLP: [Linear, ELU, Linear, ELU, Linear(action)]
-                # Indices: 0=lin, 1=ELU, 2=lin, 3=ELU, 4=lin (output head)
-                # We need to know how many hidden layers. Detect: a key with
-                # the largest even idx is the output. The student saves only
-                # Linear layers (no ELU params), so even-idx Linears.
-                # Easier: build a parallel mapping table.
                 pass
             if tk is not None and tk in own and own[tk].shape == v.shape:
                 own[tk] = v
@@ -175,9 +164,8 @@ class PPOPointCloud:
             else:
                 skipped.append(k)
 
-        # Handle student MLP → actor mlp head mapping properly: traverse the
-        # student MLP's parameter list in order. Easiest: just iterate keys
-        # matching `mlp.\d+\.` and match by ordinal to our actor's `actor_mlp.mlp.\d+.`.
+        # Student MLP → actor: match the student's `mlp.<i>.` Linear layers by
+        # ordinal to `actor_mlp.mlp.<j>.`; the last student layer is the head.
         student_mlp_layers = sorted(
             {int(k.split(".")[1]) for k in sd if k.startswith("mlp.")}
         )

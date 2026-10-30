@@ -33,10 +33,9 @@ TABLE_SURFACE_Z: float = 0.415
 # with the table surface.
 #
 # This is not a free parameter. Demonstrations store joint angles, so moving the
-# base moves the hand by the same amount against an object that has not moved --
-# 17 mm is 13-50% of the hand's 3.3-13.2 cm grasp aperture. Every retarget, every
-# teacher and every policy trained against another value has to be redone, and
-# the camera extrinsic re-measured. Do not change it to make a number look right.
+# base moves the hand by the same amount against an object that has not moved.
+# Every retarget, teacher and policy trained against another value has to be
+# redone, and the camera extrinsic re-measured.
 ARM_BASE_Z: float = 0.415
 ARM_BASE_POS: tuple = (-0.1, 0.0, ARM_BASE_Z)
 ARM_BASE_ROT: tuple = (1.0, 0.0, 0.0, 0.0)

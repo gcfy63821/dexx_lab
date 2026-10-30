@@ -159,7 +159,7 @@ def _capture_finger_data_per_env(env, num_envs: int) -> list[tuple[np.ndarray, n
         _CAPTURE_FINGER_DEBUG_PRINTED[0] = True
         eo = getattr(env, "scene", None)
         eo_origins = eo.env_origins if eo is not None else None
-        print(f"[capture_finger DEBUG] hand={hand is not None} "
+        print(f"[capture_finger] hand={hand is not None} "
               f"finger_bodies={finger_bodies is not None and len(finger_bodies)} "
               f"elastomer_ids={elastomer_ids is not None and len(elastomer_ids)} "
               f"last_contacts_vec_w={force_vec is not None and tuple(force_vec.shape)} "
@@ -230,7 +230,7 @@ def _save_snapshots(frames: list[np.ndarray], out_dir: str, n: int,
     return len(idxs)
 
 
-# Per-finger arrow colors (BGR-ish but we're using RGB so just RGB tuples)
+# Per-finger arrow colors (RGB)
 _FINGER_COLORS = [
     (244, 67, 54),    # thumb  — red
     (255, 152, 0),    # index  — orange
@@ -314,7 +314,7 @@ def _draw_force_arrows(img: np.ndarray,
 
     if not _DRAW_FORCE_DEBUG_PRINTED[0]:
         _DRAW_FORCE_DEBUG_PRINTED[0] = True
-        print(f"[draw_force DEBUG] cam_pos={cam['t']} fx={cam['fx']:.1f}")
+        print(f"[draw_force] cam_pos={cam['t']} fx={cam['fx']:.1f}")
         for k in range(min(5, fingertip_pos_w.shape[0])):
             fmag = float(np.linalg.norm(force_vec_w[k]))
             print(f"  tip{k}: pos_w={fingertip_pos_w[k]} force_w={force_vec_w[k]} mag={fmag:.2f}N  "
@@ -390,9 +390,8 @@ def main():
         print(f"[ExpertVideo] eval_no_terminate=True → rollouts run until demo end / max_steps")
 
     # ---- Build env (auto-expansion happens here) ----
-    # First call needs num_envs set; we DON'T yet know expansion count.
-    # Strategy: build with num_envs = max(args.num_envs or 8, len(data_idx_list)),
-    # check expanded_data_indices, and if user requested more, document it.
+    # The expansion count is only known after the build: build with --num_envs
+    # (or max(8, n_demos)) and warn below if that is fewer than the variants.
     initial_n = args.num_envs or max(8, len(data_idx_list))
     env_cfg.scene.num_envs = initial_n
     env_raw = gym.make(args.task, cfg=env_cfg, render_mode=None)
@@ -436,8 +435,8 @@ def main():
     if hasattr(base_env, "_apply_record_camera_pose"):
         base_env._apply_record_camera_pose()
 
-    # Build camera params for projecting force vectors. World ≈ env-local here
-    # (env_origins at world z=0). After cam_yaw_deg rotation we used updated pos.
+    # Build camera params for projecting force vectors (env-local frame;
+    # record_camera.pos already includes --cam_yaw_deg / --cam_z_offset).
     cam_params = None
     if args.draw_force:
         rec = env_cfg.record_camera
@@ -643,7 +642,7 @@ def main():
                                 print(f"  [ExpertVideo] ✓ env{ei} {full_idx} → {out_path} ({len(hist)} frames)")
                         if ok and args.snapshot_frames > 0:
                             snap_dir = os.path.join(args.out_dir, label)
-                            print(f"  [SAVE DEBUG] args.draw_force={args.draw_force} "
+                            print(f"  [ExpertVideo]   snapshot input: draw_force={args.draw_force} "
                                   f"len(fdat)={len(fdat) if fdat else None} "
                                   f"fdat[0]={'tuple' if (fdat and fdat[0] is not None) else 'None'}")
                             n_saved = _save_snapshots(

@@ -5,11 +5,11 @@ Shows hand keypoints (spheres + bones) and object mesh per frame.
 
 Usage:
     # Visualize a specific sequence
-    python tools/dataset/vis_sequence.py --sequence blue_cup/blue_cup_1
+    python tools/dataset/vis_sequence.py --sequence 0416_grasp/cube_small_1
 
     # Specify data root and port
     python tools/dataset/vis_sequence.py \
-        --sequence blue_cup/blue_cup_1 \
+        --sequence 0416_grasp/cube_small_1 \
         --data_dir data/robotool_batch \
         --port 8080
 
@@ -176,7 +176,7 @@ def build_bone_segments(positions: dict) -> tuple:
 def main():
     parser = argparse.ArgumentParser(description="Visualize RoboTool batch data with viser")
     parser.add_argument("--sequence", type=str, required=True,
-                        help="Sequence path relative to data_dir (e.g., blue_cup/blue_cup_1)")
+                        help="Sequence path relative to data_dir (e.g., 0416_grasp/cube_small_1)")
     parser.add_argument("--data_dir", type=str, default="data/robotool_batch",
                         help="Root directory for batch-processed data")
     parser.add_argument("--port", type=int, default=8080, help="Viser server port")

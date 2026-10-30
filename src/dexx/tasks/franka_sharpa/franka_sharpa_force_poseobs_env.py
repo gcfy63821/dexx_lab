@@ -201,9 +201,7 @@ class FrankaSharpaForcePoseObsEnv(FrankaSharpaForceCriticHorizonEnv):
         full_obs = torch.cat([obs_buf, obj_pose_obs], dim=-1)
 
         # Extend the parent's named slot map with this tail, so a student can
-        # drop it by name rather than by a hardcoded `-7`. This is the channel
-        # that at deploy is demo replay (open-loop) whenever no pose publisher
-        # is running, so naming it explicitly matters.
+        # drop it by name rather than by a hardcoded `-7`.
         slots = getattr(self, "actor_obs_slots", None)
         if slots is not None and "obj_pose_tail" not in slots:
             start = max(b for _, b in slots.values())

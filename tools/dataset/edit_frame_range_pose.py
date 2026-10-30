@@ -18,11 +18,11 @@ to `mano_joints_corrected.pkl` with a `.frameedit.bak` backup on first save.
 
 Usage:
     python tools/dataset/edit_frame_range_pose.py \\
-        --seq data/robotool_batch/0423_dual/blue_cup_1
+        --seq data/robotool_batch/0416_grasp/cube_small_1
 
     # Or task-level browsing:
     python tools/dataset/edit_frame_range_pose.py \\
-        --task_dir data/robotool_batch/0423_dual
+        --task_dir data/robotool_batch/0416_grasp
 """
 
 import argparse
@@ -387,7 +387,7 @@ def main():
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--seq", type=str,
-                       help="Single seq dir (e.g. data/robotool_batch/0423_dual/blue_cup_1)")
+                       help="Single seq dir (e.g. data/robotool_batch/0416_grasp/cube_small_1)")
     group.add_argument("--task_dir", type=str,
                        help="Task dir; browse all seqs inside via dropdown")
     parser.add_argument("--port", type=int, default=8080)
@@ -716,7 +716,7 @@ def main():
             frame_slider.value = 0
             edit_start.max = T - 1
             edit_end.max   = T - 1
-            # Default: edit the LAST 10 frames (user's main use case)
+            # Default: edit the last 10 frames
             default_start = max(0, T - 10)
             edit_start.value = default_start
             edit_end.value   = T - 1

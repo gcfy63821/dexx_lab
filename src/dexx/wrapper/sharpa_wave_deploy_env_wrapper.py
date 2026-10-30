@@ -130,7 +130,7 @@ class GymStyleEnvWrapper(ABC):
             return
 
         # modify the action space to the clip range
-        # note: this is only possible for the box action space. we need to change it in the future for other action spaces.
+        # note: this is only possible for the box action space.
         self.env.unwrapped.single_action_space = gym.spaces.Box(
             low=-self.clip_actions, high=self.clip_actions, shape=(self.num_actions,)
         )

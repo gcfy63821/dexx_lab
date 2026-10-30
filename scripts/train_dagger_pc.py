@@ -67,7 +67,7 @@ parser.add_argument("--pc_type_repr", type=str, default="scalar",
                          "one-hot (3 dims). Affects encoder input_dim, not env shape.")
 parser.add_argument("--pc_tactile_gate_mode", type=str, default="zero",
                     choices=["zero", "mask"],
-                    help="When --pc_tactile_force_gate > 0: 'zero' (legacy, zeroes "
+                    help="When --pc_tactile_force_gate > 0: 'zero' (zeroes "
                          "xyz+force of gated points) or 'mask' (leaves xyz/force "
                          "unchanged; encoder skips via tactile_mask).")
 parser.add_argument("--pc_tactile_use_vec3", action="store_true",
@@ -75,7 +75,7 @@ parser.add_argument("--pc_tactile_use_vec3", action="store_true",
                          "(env outputs (N,25,3) instead of (N,25,1)). Also sets "
                          "pc_tactile_feature_dim=3 so encoder agrees.")
 parser.add_argument("--seed", type=int, default=0,
-                    help="Random seed (torch / numpy / env) — for multi-seed ablation runs.")
+                    help="Random seed (torch / numpy / env).")
 parser.add_argument("--no_contact_force", action="store_true", default=False,
                     help="Modality ablation: zero the 5-d scalar contact force in the obs.")
 
@@ -305,7 +305,7 @@ def main():
         setattr(env_cfg, _k, _val)
         print(f"[env_cfg] {_k} = {_val!r}")
 
-    # Reproducibility: seed torch / numpy / env (for multi-seed ablation runs).
+    # Reproducibility: seed torch / numpy / env.
     import random as _random
     torch.manual_seed(args_cli.seed)
     if torch.cuda.is_available():

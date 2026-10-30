@@ -132,7 +132,7 @@ class PointCloudEncoder(nn.Module):
         Returns:
             (B, output_dim)
         """
-        # Build / sanitize tactile_mask (None = all True for backward compat).
+        # Build / sanitize tactile_mask (None = all True).
         if tactile_mask is None:
             tactile_mask = torch.ones(
                 scene_pc.shape[0], self.n_tactile,

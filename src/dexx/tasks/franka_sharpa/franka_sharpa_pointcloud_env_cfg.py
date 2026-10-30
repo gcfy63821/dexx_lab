@@ -122,9 +122,8 @@ class FrankaSharpaPointCloudEnvCfg(FrankaSharpaPoseObsCfg):
     pc_ablate_tactile_force: bool = False   # zero the tactile_force channel
     pc_force_repr: str = "scalar"           # "scalar" | "binary"
     # Divide tactile_force by this constant before feeding PointNet. Must be the
-    # same value in sim and real for sim2real consistency. Default 1.0 = no-op
-    # (preserves existing trained ckpt behaviour). Recommended: pick the typical
-    # max F6 force the Sharpa hand sees on a grasp (≈10-30 N).
+    # same value in sim and real for sim2real consistency. Default 1.0 = no-op.
+    # Recommended: pick the typical max F6 force the Sharpa hand sees on a grasp (≈10-30 N).
     pc_force_scale: float = 1.0
     # Use 3D tactile force vector (elastomer-local frame) instead of scalar
     # magnitude. When True, env outputs tactile_force shape (N, 25, 3) and
@@ -146,8 +145,8 @@ class FrankaSharpaPointCloudEnvCfg(FrankaSharpaPoseObsCfg):
     # Disable the reverse curriculum inherited from critic_horizon_cfg.
     # That cfg samples from `[init_curriculum_start*seq_len, 0.98*seq_len)`
     # early on and ramps over `init_curriculum_steps` (15000) env steps. DAgger
-    # only takes ~960 env steps total, so with the curriculum the policy would
-    # never see the early demo frames.
+    # runs far fewer env steps, so with the curriculum the policy would never
+    # see the early demo frames.
     # Disabling the curriculum reverts the sampler to uniform `[0, 0.98*seq_len)`.
     # ------------------------------------------------------------------
     init_curriculum_enabled: bool = False

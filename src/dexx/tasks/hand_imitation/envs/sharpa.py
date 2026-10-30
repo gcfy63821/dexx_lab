@@ -105,13 +105,6 @@ class Sharpa(DexHand, ABC):
         }
         self.dex2hand_mapping = self.reverse_mapping(self.hand2dex_mapping)
         assert len(self.dex2hand_mapping.keys()) == len(self.body_names)
-        # self.contact_body_names = [
-        #     "thumb_DP",
-        #     "index_DP",
-        #     "middle_DP",
-        #     "ring_DP",
-        #     "pinky_DP",
-        # ]
         self.contact_body_names = [
             "thumb_elastomer",
             "index_elastomer",
@@ -262,16 +255,13 @@ class Sharpa(DexHand, ABC):
         }
 
 
-        # ? >>>>>>>>>>>
-        # ? Used only in PID-controlled wrist pose mode (reference only, not our main method).
-        # ? More stable in highly dynamic scenarios but requires careful tuning.
+        # Gains for the PID-controlled wrist pose mode only.
         self.Kp_rot = 0.5
         self.Ki_rot = 0.001
         self.Kd_rot = 0.01
         self.Kp_pos = 20
         self.Ki_pos = 0.005
         self.Kd_pos = 0.1
-        # ? <<<<<<<<<<
 
 
     def __str__(self):
@@ -291,11 +281,9 @@ class SharpaRH(Sharpa):
         self.hand2dex_mapping = {k: ["right_" + dex_v for dex_v in v] for k, v in self.hand2dex_mapping.items()}
         self.dex2hand_mapping = self.reverse_mapping(self.hand2dex_mapping)
         self.contact_body_names = ["right_" + name for name in self.contact_body_names]
-        # Note: relative_rotation and relative_translation may need manual adjustment
-        # self.relative_rotation = aa_to_rotmat(torch.tensor([np.pi / 2, 0, 0], device=self.device)) @ aa_to_rotmat(torch.tensor([0, -np.pi / 2, 0], device=self.device))
+        # Rotation / translation between the MANO wrist and the hand's URDF frame.
         self.relative_rotation = aa_to_rotmat(np.array([np.pi / 2, 0, 0])) @ aa_to_rotmat(np.array([0, -np.pi / 2, 0]))
         self.relative_translation = np.array([0.0, 0.0, 0.0])  # Adjust based on URDF wrist position
-        # self.relative_translation = torch.tensor([0.0, 0.0, 0.0], device = device)
     def __str__(self):
         return super().__str__() + "_rh"
 
@@ -313,17 +301,10 @@ class SharpaLH(Sharpa):
         self.hand2dex_mapping = {k: ["left_" + dex_v for dex_v in v] for k, v in self.hand2dex_mapping.items()}
         self.dex2hand_mapping = self.reverse_mapping(self.hand2dex_mapping)
         self.contact_body_names = ["left_" + name for name in self.contact_body_names]
-        # Note: relative_rotation and relative_translation may need manual adjustment
-        # Based on the hand's URDF coordinate frame relative to MANO
-        # self.relative_rotation = aa_to_rotmat(np.array([0, np.pi / 2, -np.pi / 2]))
-        # self.relative_rotation = aa_to_rotmat(np.array([np.pi * 3/2, np.pi / 2, -np.pi / 2]))
-        # self.relative_rotation = aa_to_rotmat(np.array([np.pi * 2, np.pi / 2, -np.pi / 2]))
-        # self.relative_rotation = aa_to_rotmat(np.array([-np.pi / 2, 0, 0]))
+        # Rotation / translation between the MANO wrist and the hand's URDF frame.
         self.relative_rotation = aa_to_rotmat(np.array([-np.pi / 2, 0, 0])) @ aa_to_rotmat(np.array([0, np.pi / 2, 0]))
-        # self.relative_rotation = aa_to_rotmat(torch.tensor([-np.pi / 2, 0, 0], device=self.device)) @ aa_to_rotmat(torch.tensor([0, np.pi / 2, 0], device=self.device))
-        
+
         self.relative_translation = np.array([0.0, 0.0, 0.0])  # Adjust based on URDF wrist position
-        # self.relative_translation = torch.tensor([0.0, 0.0, 0.0], device = device)
 
     def __str__(self):
         return super().__str__() + "_lh"

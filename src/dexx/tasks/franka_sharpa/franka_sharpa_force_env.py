@@ -27,7 +27,6 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
     """
     cfg: "FrankaSharpaEnvCfg"
     def __init__(self, cfg: "FrankaSharpaEnvCfg", render_mode: str | None = None, **kwargs):
-        # cfg.observation_space = 598
         cfg.observation_space = 543
         super().__init__(cfg, render_mode, **kwargs)
 
@@ -285,7 +284,7 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
         if _eval_no_terminate:
             self.reset_buf[:] = 0   # don't terminate → episode runs to time_out
 
-        # DEBUG: print fail/* sums every 100 steps
+        # Print fail/* counts at steps 1, 100 and 200.
         if not hasattr(self, "_dbg_count"):
             self._dbg_count = 0
         self._dbg_count += 1
@@ -293,7 +292,7 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
             for k in ("fail/obj_pos_drift", "fail/obj_rot_drift", "fail/error_buf_velocity_explosion", "fail/premature_contact"):
                 if k in reward_dict:
                     v = reward_dict[k]
-                    print(f"[FORCE_ENV DEBUG step={self._dbg_count}] {k}: shape={tuple(v.shape)}, sum={int((v > 0.5).sum().item())}, mean={float(v.mean().item()):.4f}")
+                    print(f"[ForceEnv step={self._dbg_count}] {k}: shape={tuple(v.shape)}, sum={int((v > 0.5).sum().item())}, mean={float(v.mean().item()):.4f}")
 
         self.total_rew_buf += self.reward_execute
         self.reward_dict = reward_dict
@@ -316,8 +315,8 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
         self.extras['succeeded'] = self.success_buf.float().mean()
         self.extras['failed_execute'] = self.failure_buf.float().mean()
 
-        # ---- Anti-shake debug diagnostics (env 0 + batch stats) ----
-        # These show up in wandb so you can see per-step:
+        # ---- Arm action-smoothness diagnostics (batch stats) ----
+        # Logged per step:
         #   - how jittery the policy's arm action is (commanded jitter)
         #   - whether the arm is actually following or saturating
         #   - which joint is the worst offender
@@ -461,52 +460,6 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
         
         _asymmetric_ac = getattr(self.cfg, 'asymmetric_ac', False)
         if hasattr(self, 'object') and self.object is not None:
-            # target_obj_transf = indicing(self.demo_data["obj_trajectory"], future_indices)
-            # target_obj_transf = target_obj_transf.reshape(nE * nF, 4, 4)
-
-            # target_obj_pos = target_obj_transf[:, :3, 3].reshape(nE, nF, -1)  # [nE, nF, 3]
-
-            # # Object position delta
-            # cur_obj_pos = self.object.data.root_pos_w - self.scene.env_origins
-            # print(f"cur_obj_pos: {cur_obj_pos}")
-            # delta_manip_obj_pos = (
-            #     target_obj_pos - cur_obj_pos[:, None]
-            # ).reshape(nE, -1)
-            # target_obs_list.append(delta_manip_obj_pos)
-
-            # # Object velocity
-            # target_obj_vel = indicing(self.demo_data["obj_velocity"], future_indices)
-            # cur_obj_vel = self.object.data.root_lin_vel_w
-            # manip_obj_vel = target_obj_vel.reshape(nE, -1)
-            # delta_manip_obj_vel = (target_obj_vel - cur_obj_vel[:, None]).reshape(nE, -1)
-            # target_obs_list.append(manip_obj_vel)
-            # target_obs_list.append(delta_manip_obj_vel)
-
-            # # Object quaternion
-            # target_obj_quat = rotmat_to_quat(target_obj_transf[:, :3, :3])
-            # cur_obj_quat = self.object.data.root_quat_w
-            # delta_manip_obj_quat = quat_mul(
-            #     cur_obj_quat[:, None].repeat(1, nF, 1).reshape(nE * nF, -1),
-            #     quat_conjugate(target_obj_quat),
-            # ).reshape(nE, -1)
-            # manip_obj_quat = target_obj_quat.reshape(nE, -1)
-            # target_obs_list.append(manip_obj_quat)
-            # target_obs_list.append(delta_manip_obj_quat)
-
-            # # Object angular velocity
-            # target_obj_ang_vel = indicing(self.demo_data["obj_angular_velocity"], future_indices)
-            # cur_obj_ang_vel = self.object.data.root_ang_vel_w
-            # manip_obj_ang_vel = target_obj_ang_vel.reshape(nE, -1)
-            # delta_manip_obj_ang_vel = (target_obj_ang_vel - cur_obj_ang_vel[:, None]).reshape(nE, -1)
-            # target_obs_list.append(manip_obj_ang_vel)
-            # target_obs_list.append(delta_manip_obj_ang_vel)
-
-            # # Object to joints distance
-            # obj_to_joints = torch.norm(
-            #     cur_obj_pos[:, None] - cur_joint_pos, dim=-1
-            # ).reshape(self.num_envs, -1)
-            # target_obs_list.append(obj_to_joints)
-
             # Tips distance (privileged: requires GT object pose, skip for asymmetric AC actor)
             if not _asymmetric_ac:
                 gt_tips_distance = indicing(self.demo_data["tips_distance"], future_indices).reshape(nE, -1)
@@ -514,7 +467,7 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
 
         # Add BPS features if available.
         # Gated by cfg.enable_bps (default True) — when False, BPS is omitted even
-        # in non-asymmetric path (used for ablations / removing shape prior).
+        # in the non-asymmetric path.
         # Under asymmetric_ac=True, BPS is always removed from actor (privileged).
         _include_bps = (self.obj_bps is not None
                         and not _asymmetric_ac
@@ -595,14 +548,14 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
 
         # Contact domain randomization for sim2real (only during training)
         if not getattr(self, '_is_deploy_env', False):
-            # 1) Force noise: multiplicative ±20%
+            # 1) Force noise: multiplicative, std = contact_force_noise
             force_noise_std = getattr(self.cfg, 'contact_force_noise', 0.0)
             if force_noise_std > 0:
                 force_noise = 1.0 + force_noise_std * torch.randn_like(sensed_contacts)
                 sensed_contacts = sensed_contacts * force_noise
                 sensed_contacts = torch.clamp(sensed_contacts, min=0.0)
 
-            # 2) Position noise: additive ±3mm
+            # 2) Position noise: additive, std = contact_pos_noise (m)
             pos_noise_std = getattr(self.cfg, 'contact_pos_noise', 0.0)
             if pos_noise_std > 0:
                 # Only add noise where contact exists
@@ -631,9 +584,9 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
         obs_buf = torch.cat([proprioception_obs, target_obs], dim=-1)
 
         # Update observation history buffer for ProprioAdapt
-        obs_part_for_hist = obs_buf[:, :self.proprio_hist_dim]  # [num_envs, 194]
+        obs_part_for_hist = obs_buf[:, :self.proprio_hist_dim]  # [num_envs, proprio_hist_dim]
         prev_obs_buf = self.obs_buf_lag_history[:, 1:].clone()
-        cur_obs_buf = obs_part_for_hist.unsqueeze(1)  # [num_envs, 1, 194]
+        cur_obs_buf = obs_part_for_hist.unsqueeze(1)  # [num_envs, 1, proprio_hist_dim]
         self.obs_buf_lag_history[:] = torch.cat([prev_obs_buf, cur_obs_buf], dim=1)
         
         # Extract proprioceptive history for ProprioAdapt
@@ -643,7 +596,7 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
         # Handle reset: refill history buffer for reset environments
         at_reset_env_ids = self.at_reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(at_reset_env_ids) > 0:
-            reset_obs = obs_part_for_hist[at_reset_env_ids]  # [num_reset, 194]
+            reset_obs = obs_part_for_hist[at_reset_env_ids]  # [num_reset, proprio_hist_dim]
             self.obs_buf_lag_history[at_reset_env_ids] = reset_obs.unsqueeze(1).repeat(1, self.obs_buf_lag_history.shape[1], 1)
             self.proprio_hist_buf[at_reset_env_ids] = reset_obs.unsqueeze(1).repeat(1, self.cfg.prop_hist_len, 1)
 
@@ -657,7 +610,7 @@ class FrankaSharpaForceEnv(FrankaSharpaEnv):
         if not hasattr(self, '_obs_dim_checked'):
             actual_dim = obs_buf.shape[-1]
             expected_dim = self.cfg.observation_space
-            print(f"[DEBUG] Observation dimension check:")
+            print(f"[ForceEnv] Observation dimension check:")
             print(f"  Actual computed: {actual_dim}")
             print(f"  Expected (cfg): {expected_dim}")
             print(f"  Difference: {actual_dim - expected_dim}")

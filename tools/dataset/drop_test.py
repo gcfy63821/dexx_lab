@@ -11,13 +11,13 @@ For each sequence:
 
 Usage:
     # Single sequence (with viewer)
-    python tools/dataset/drop_test.py --sequence blue_cup/blue_cup_1
+    python tools/dataset/drop_test.py --sequence 0416_grasp/cube_small_1
 
     # All sequences (headless)
     python tools/dataset/drop_test.py --all --headless
 
     # Specific task
-    python tools/dataset/drop_test.py --task blue_cup --headless
+    python tools/dataset/drop_test.py --task 0416_grasp --headless
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ parser = argparse.ArgumentParser(
     description="Drop-test objects to find table resting position"
 )
 group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument("--sequence", type=str, help="e.g. blue_cup/blue_cup_1")
+group.add_argument("--sequence", type=str, help="e.g. 0416_grasp/cube_small_1")
 group.add_argument("--task", type=str, help="Process all sequences under a task")
 group.add_argument("--all", action="store_true", help="Process all sequences")
 
@@ -170,10 +170,7 @@ def load_sequence(seq_dir: str):
 
 
 def ensure_urdf(mesh_path: str):
-    """Ensure a URDF exists for the mesh (generate if needed).
-
-    Uses the same generate_urdf_from_obj pattern as the existing codebase.
-    """
+    """Ensure a URDF exists for the mesh (generate if needed)."""
     urdf_path = mesh_path.replace(".obj", ".urdf")
     if os.path.exists(urdf_path):
         return urdf_path

@@ -19,16 +19,13 @@ class DexHand(ABC):
         self.weight_idx = None
         self.self_collision = False
 
-        # ? >>>>>>>>>>>
-        # ? Used only in PID-controlled wrist pose mode (reference only, not our main method).
-        # ? More stable in highly dynamic scenarios but requires careful tuning.
+        # Gains for the PID-controlled wrist pose mode only.
         self.Kp_rot = None
         self.Ki_rot = None
         self.Kd_rot = None
         self.Kp_pos = None
         self.Ki_pos = None
         self.Kd_pos = None
-        # ? <<<<<<<<<<
 
     @abstractmethod
     def __str__(self):

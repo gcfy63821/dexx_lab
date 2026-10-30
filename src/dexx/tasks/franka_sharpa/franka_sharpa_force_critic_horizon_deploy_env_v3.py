@@ -3,16 +3,14 @@
 """V3 deploy env: replaces sim.step FK with pytorch_kinematics CPU FK.
 
 Why V3:
-  A PhysX sim.step costs ~80ms per env step on real hardware — fixed GPU
-  launch / sync overhead that does NOT scale down with num_envs=1 /
-  decimation=1 / no-render. V2 needs sim.step only to refresh
-  `self.hand.data.body_pos_w`, which the fingertip-tracking obs
-  (delta_joints_pos / delta_joints_vel) reads.
+  V2 runs a PhysX sim.step only to refresh `self.hand.data.body_pos_w`, which
+  the fingertip-tracking obs (delta_joints_pos / delta_joints_vel) reads. That
+  step has a fixed GPU launch / sync cost that does not shrink with
+  num_envs=1 / decimation=1 / no-render.
 
 What V3 does:
   Builds a pytorch_kinematics chain from the same URDF used in retargeting
-  and runs FK on CPU each env step (~1-3 ms for a 29-joint chain at batch=1).
-  No sim.step / scene.update / scene.write_data_to_sim. Everything else is
+  and runs FK on CPU each env step. No sim.step / scene.update / scene.write_data_to_sim. Everything else is
   inherited unchanged from FrankaSharpaForceCriticHorizonDeployEnv (which
   itself extends V2): HandSDKWorker, Polymetis arm client, e-stop,
   emergency hold, debug recording, two-stage reset ramp via FR3 home pose,
@@ -426,23 +424,19 @@ class FrankaSharpaForceCriticHorizonDeployEnvV3(FrankaSharpaForceCriticHorizonDe
         """After parent computes arm_joint_pos_des, run a low-pass EMA on
         it to kill the step-to-step chatter that arises because the
         integration `current + delta` reads a noisy real-arm encoder
-        each step. Sim has perfect `arm_joint_pos` so training never
-        exposed this — at deploy the encoder noise feeds straight into
-        the target trajectory, amplifying the policy's action sign-flip
-        rate, visible as arm shake.
+        each step. Sim has a noise-free `arm_joint_pos`; on hardware the
+        encoder noise feeds into the target trajectory and shows as arm shake.
 
-        EMA on the FINAL target is the conservative choice: it doesn't
-        change the integration semantics the policy was trained with, it
-        just low-passes the published target before sending to the arm
-        impedance controller. With alpha=0.4 at 30Hz the cutoff is
-        ~5-7Hz; the 15Hz Nyquist chatter is removed.
+        The EMA acts on the FINAL target only, so the integration semantics
+        the policy was trained with are unchanged. With alpha=0.4 at 30Hz the
+        cutoff is ~5-7Hz, removing the 15Hz Nyquist chatter.
         """
         super()._pre_physics_step(actions)
 
         if not hasattr(self, '_arm_des_ema') or self._arm_des_ema is None:
             self._arm_des_ema = self.arm_joint_pos_des.clone()
 
-        # cfg-overridable so a future user can tune without code edits.
+        # cfg-overridable.
         alpha = float(getattr(self.cfg, 'deploy_arm_des_ema_alpha', 0.4))
         self._arm_des_ema = alpha * self.arm_joint_pos_des + (1.0 - alpha) * self._arm_des_ema
         self.arm_joint_pos_des = self._arm_des_ema.clone()
@@ -498,9 +492,8 @@ class FrankaSharpaForceCriticHorizonDeployEnvV3(FrankaSharpaForceCriticHorizonDe
         """Drop-in replacement for V2.get_tactile_info that does NOT block
         until every channel has a fresh frame. V2's loop re-polls channels
         with `timeout=0.1s` per RPC until all 5 have returned a frame; Sharpa
-        tactile streams asynchronously on a ~130ms cycle, so some channels
-        never push during one polling pass and that loop dominates the step
-        time (~80ms / step).
+        tactile streams asynchronously on a ~130ms cycle, so that loop would
+        dominate the step time.
 
         Strategy here:
           - Try-fetch each of the 5 channels with timeout=0 (truly non-blocking).
@@ -668,8 +661,7 @@ class FrankaSharpaForceCriticHorizonDeployEnvV3(FrankaSharpaForceCriticHorizonDe
             self._step_next_deadline = time.perf_counter()
         t5 = time.perf_counter()
 
-        # 9. Per-stage profiler. obs+done bucket includes pk FK; if it's
-        # still > ~10ms, profile inside _compute_fk for breakdown.
+        # 9. Per-stage profiler. The obs+done bucket includes pk FK.
         if not hasattr(self, '_step_prof_v3'):
             self._step_prof_v3 = {k: 0.0 for k in
                                   ('pre', 'apply', 'obs_done_reset', 'rec_sleep', 'cycle')}

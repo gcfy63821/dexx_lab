@@ -90,7 +90,7 @@ def load_motion(motion_path):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--ip", required=True, help="NUC bridge IP (e.g. 192.168.1.10)")
+    p.add_argument("--ip", required=True, help="NUC bridge IP (<NUC_IP>)")
     p.add_argument("--state_port", type=int, default=_dcfg.POLYMETIS_STATE_PORT)
     p.add_argument("--cmd_port", type=int, default=_dcfg.POLYMETIS_CMD_PORT)
     p.add_argument("--motion", required=True, type=str)

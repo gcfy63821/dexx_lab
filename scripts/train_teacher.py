@@ -37,7 +37,7 @@ parser.add_argument("--video", action="store_true", default=False, help="Record 
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument("--video_interval", type=int, default=10000, help="Interval between video recordings (in agent steps).")
 parser.add_argument("--side", type=str, default=None, help="Hand side (left or right)")
-parser.add_argument("--data_idx", type=str, default=None, help="Data indices as a JSON/Python list string, e.g., '[\"925aa@1\", \"20aed@0\"]'")
+parser.add_argument("--data_idx", type=str, default=None, help="Data indices as a JSON/Python list string, e.g., '[\"rt/0416_grasp/cube_small_1\"]'")
 parser.add_argument("--robot_asset", type=str, default=None, help="Optional custom robot URDF (abs or repo-relative). Default uses assets/generated/fr3_with_{side}_sharpa_wave.urdf.")
 parser.add_argument("--material_elastomer_ids", type=str, default=None, help="JSON list of fingertip-elastomer collision-shape indices for friction DR (calibrate with tools/calibrate_elastomer_ids.py after any asset change). Default None -> [27,28,30,32,33] for the stock asset.")
 parser.add_argument("--env_cfg", type=str, nargs="*", default=[], help="Override env_cfg fields, e.g., --env_cfg enable_tactile=False binary_contact=True force_reward_weight=0.0")
@@ -74,8 +74,6 @@ import dexx.tasks.franka_sharpa  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 
-# PLACEHOLDER: Extension template (do not remove this comment)
-
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.deterministic = False
@@ -87,9 +85,6 @@ import wandb
 
 @hydra_task_config(args_cli.task, "gym_style_cfg_entry_point")
 def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
-    # Do not delete Hydra's global outputs/ directory here. Multi-process
-    # ablation launches race on this path and can crash each other during
-    # startup; per-run logs are written under logs/gym_style instead.
     """Train with Gym-Style agent."""
     env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
     agent_cfg["algorithm"]["max_agent_steps"] = args_cli.max_agent_steps if args_cli.max_agent_steps is not None else agent_cfg["algorithm"]["max_agent_steps"]
@@ -118,7 +113,7 @@ def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
                     data_indices = ast.literal_eval(args_cli.data_idx)
                 except (ValueError, SyntaxError) as e:
                     raise ValueError(f"Invalid data_idx format: {args_cli.data_idx}. "
-                                   f"Expected JSON or Python list format, e.g., '[\"925aa@1\", \"20aed@0\"]'. "
+                                   f"Expected JSON or Python list format, e.g., '[\"rt/0416_grasp/cube_small_1\"]'. "
                                    f"Error: {e}")
             if not isinstance(data_indices, list):
                 raise ValueError(f"data_idx must be a list, got {type(data_indices)}")

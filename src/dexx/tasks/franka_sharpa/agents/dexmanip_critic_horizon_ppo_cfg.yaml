@@ -47,11 +47,11 @@ algorithm:
   # privileged info (asymmetric critic)
   priv_info: True
   priv_info_dim: 148    # 40 + 18*K + 18 for K=5; MUST match cfg.priv_info_dim
-  priv_info_embed_dim: 148  # Legacy field (not read by ActorCriticAsymmetric)
+  priv_info_embed_dim: 148  # Not read by ActorCriticAsymmetric
 
   # Teacher model configuration (retained for compatibility with ppo.py plumbing;
   # not used unless a teacher-student script is invoked)
-  teacher_path: ""   # set me: no checkpoint ships for this legacy config
+  teacher_path: ""   # set me: no checkpoint ships with this config
   teacher_proprio_adapt: False
   teacher_network:
     mlp:

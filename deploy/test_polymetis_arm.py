@@ -4,8 +4,8 @@
 Does NOT need Isaac Lab / a policy — just exercises PolymetisArmClient against the
 NUC bridge, so we can validate comms and control incrementally and SAFELY.
 
-Run on the training PC (dexmanip env). The NUC must be running:
-    conda activate polymetis-local && python polymetis_joint_bridge.py
+Run on the inference PC. The NUC must be running:
+    conda activate <polymetis_env> && python polymetis_joint_bridge.py
 
 Stages (each higher stage requires an explicit flag; robot only moves at --nudge):
 
@@ -37,7 +37,7 @@ def fmt(v):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--ip", required=True, help="NUC bridge IP (e.g. 192.168.1.10)")
+    ap.add_argument("--ip", required=True, help="NUC bridge IP")
     ap.add_argument("--state_port", type=int, default=_dcfg.POLYMETIS_STATE_PORT)
     ap.add_argument("--cmd_port", type=int, default=_dcfg.POLYMETIS_CMD_PORT)
     ap.add_argument("--seconds", type=float, default=5.0, help="read-only streaming duration")

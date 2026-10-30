@@ -8,11 +8,11 @@ Pipeline (all in fr3_link0 / arm-base frame):
   out : new extrinsic = T @ init_extrinsic
 
   python tools/calib/icp_align_extrinsic.py \
-    --real_npz logs/real_calib_multi2/accum.npz \
-    --init_extrinsic calib/camera_align/refined_extrinsic_v4.npy \
+    --real_npz logs/real_calib_multi/accum.npz \
+    --init_extrinsic calib/camera_align/current.npy \
     --pkl data/retargeting/robotool_batch/mano2sharpa_rh/0416_grasp/cube_small_1@0.pkl \
     --frame 0 --box -0.2 0.6 -0.2 0.2 0.0 0.6 \
-    --out calib/camera_align/refined_extrinsic_v5.npy
+    --out calib/camera_align/extrinsic_YYYYMMDD_icp.npy
 """
 import argparse
 import numpy as np
@@ -90,7 +90,7 @@ def main():
     p.add_argument("--box", type=float, nargs=6,
                    default=[-0.2, 0.6, -0.2, 0.2, 0.0, 0.6],
                    help="xmin xmax ymin ymax zmin zmax in fr3_link0 frame")
-    p.add_argument("--sim_pts", type=int, default=200000, help="sim mesh sample count")
+    p.add_argument("--sim_pts", type=int, default=200000, help="sim mesh sampling density (pts/m^2)")
     p.add_argument("--voxel", type=float, default=0.006, help="voxel downsample (m) before ICP")
     p.add_argument("--max_corr", type=float, default=0.05, help="ICP correspondence reject dist (m)")
     p.add_argument("--sim_table", action="store_true",

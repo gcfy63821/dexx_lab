@@ -70,7 +70,6 @@ def main():
     scene = InteractiveScene(SceneCfg())
     spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
 
-    # Robot with matched gains (same as franka_sharpa_env_cfg.py)
     # Resolve the robot the same way the training env does, so the replay runs
     # against the asset the policy was trained on (collision filters, armature
     # and gains included) rather than a look-alike.
@@ -97,7 +96,6 @@ def main():
             },
         ),
         actuators={
-            # Arm: per-joint gains tuned via step response comparison (round 2).
             "arm_joints": ImplicitActuatorCfg(
                 joint_names_expr=["fr3_joint.*"],
                 # The training set (dexx.robot_constants.ARM_TUNED_KP/KD).
@@ -147,7 +145,7 @@ def main():
     print(f"Gravity compensation enabled. PhysX drives zeroed for arm joints.")
     print(f"Manual PD: K={arm_K[0].cpu().numpy()}, D={arm_D[0].cpu().numpy()}")
 
-    # Debug: print joint ordering info
+    # Joint ordering info
     print(f"robot.joint_names: {robot.joint_names}")
     print(f"robot.num_joints: {robot.num_joints}")
     print(f"arm_indices (in joint_names): {arm_indices}")
@@ -207,7 +205,7 @@ def main():
     mid_target = torch.tensor(SAFE_MIDDLE_POS, device=device, dtype=torch.float32).unsqueeze(0)
 
     # Step to settle with gravity comp
-    for _ in range(240):  # 2s
+    for _ in range(240):  # 0.5 s at 480 Hz
         apply_arm_effort(mid_target)
         robot.set_joint_position_target(all_jp)  # hand position targets
         scene.write_data_to_sim()

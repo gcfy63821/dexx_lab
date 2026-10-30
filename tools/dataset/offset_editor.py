@@ -3,11 +3,11 @@
 Browse every sequence in robotool_batch, translate the hand and/or the object
 (whole trajectory or one frame range), and save the result under a NEW name.
 
-Differs from the neighbouring scripts in four ways, which is the whole point:
+Differences from the neighbouring scripts:
 
   - `adjust_object_offset.py` takes --pkl or --task_dir and edits one task's
     sequences; this walks the entire data root, so you pick from all of them in
-    one dropdown (with a substring filter, because there are ~170).
+    one dropdown (with a substring filter).
   - The offset target is a choice, not a fixed role plus an "also shift" tick.
     An Object checkbox and a Hand dropdown (None/Left/Right/Both, rebuilt per
     sequence so an absent hand cannot be picked); shifting only the hand is a
@@ -20,13 +20,11 @@ Differs from the neighbouring scripts in four ways, which is the whole point:
 
 TRANSLATION ONLY. Rotation is deliberately absent: rotating the hand about an
 object pivot without re-solving the finger joints breaks the grasp, and
-`edit_frame_range_pose.py` already covers object rotation. Adding a rotation
-slider here would invite exactly the edit that silently corrupts a demo.
+`edit_frame_range_pose.py` covers object rotation.
 
 FRAMES ARE Z-UP. Sliders are in the frame you see in viser. The pkl stores
 camera frame (z-down), so a display offset (dx, dy, dz) is written as
-(dx, -dy, -dz). Getting this backwards is an easy mistake, so the conversion
-lives in exactly one function, `disp_to_stored`.
+(dx, -dy, -dz). The conversion lives in exactly one function, `disp_to_stored`.
 
 Usage:
     python tools/dataset/offset_editor.py
@@ -72,10 +70,10 @@ JOINT_NAMES = [
 ]
 POSITION_FIELDS = JOINT_NAMES + ["wrist_translation"]
 
-# "Wrist only" edits must touch BOTH: they hold the same numbers (verified
-# identical on 0420_manip/squeegee_1), the viewer draws `wrist`, and
-# robotool_batch_dataset_dexhand.py:421 reads `wrist_translation`. Moving one
-# and not the other makes the edit either invisible or ineffective.
+# "Wrist only" edits must touch BOTH: they hold the same numbers, the viewer
+# draws `wrist`, and the dataset loader (robotool_batch_dataset_dexhand.py)
+# reads `wrist_translation`. Moving one and not the other makes the edit either
+# invisible or ineffective.
 WRIST_FIELDS = ("wrist", "wrist_translation")
 
 FINGER_COLORS = {
@@ -282,9 +280,8 @@ def compute_alpha(T: int, whole: bool, start: int, end: int,
 def apply_edits(mano_data: dict, edits: List[dict]) -> Tuple[dict, List[str]]:
     """Apply a list of staged edits in order onto one deep copy.
 
-    Translations commute, so order does not change the result — but they are
-    applied in the order staged anyway, because the log then reads the same way
-    the user built it, which is what makes a review pass meaningful.
+    Translations commute; they are applied in staged order so the log reads
+    the same way the user built it.
 
     Each edit: {"offset": (3,), "alpha": (T,), "object": bool,
                 "left": bool, "right": bool}
@@ -573,11 +570,8 @@ def main():
         nz = server.gui.add_number("dz", initial_value=0.0, step=0.001)
         apply_num_btn = server.gui.add_button("Apply numbers to sliders")
     # In Frame range mode the preview shows offset * alpha[current frame], so a
-    # frame inside a ramp moves by a fraction of the slider value. With the
-    # default ramp of 10 and the frame slider parked at 0 (where it lands on
-    # load) the weight is 0.02 — the picture barely moves while the slider says
-    # 0.10, which reads as a broken scale. This readout names the number, and
-    # the checkbox lets you judge magnitude at full weight.
+    # frame inside a ramp moves by only a fraction of the slider value. This
+    # readout shows the effective shift; the checkbox previews at full weight.
     offset_eff_md = server.gui.add_markdown("")
     full_weight_cb = server.gui.add_checkbox(
         "Preview at full weight (ignore ramp)", initial_value=False)

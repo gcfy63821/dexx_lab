@@ -336,7 +336,7 @@ def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
             # done event at survival_len=1 per env per cycle. We filter these
             # out via `survival_len > min_survival_len`. Real episodes survive
             # at least until first fail check (running_progress_buf >= 20) or
-            # time_out (seq_len - 1 ≥ 144 for our demos), so >= 5 is safe.
+            # time_out (seq_len - 1 ≥ 144 for the shipped demos), so >= 5 is safe.
             done_t = done if torch.is_tensor(done) else torch.tensor(done, device=device)
             if done_t.any():
                 done_ids = done_t.nonzero(as_tuple=False).flatten().tolist()

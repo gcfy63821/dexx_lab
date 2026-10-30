@@ -2,11 +2,11 @@
 
 Swapping a robot asset silently shifts frames, and everything downstream — the
 retargeted demos, the arm-base height, the camera extrinsics — is calibrated
-against the old geometry. This is the cheap guard: it runs in ~0.2 s and needs
-no simulator, so there is no excuse for skipping it after an asset change.
+against the old geometry. This is the cheap guard: it needs no simulator, so
+run it after every asset change.
 
     python scripts/check_asset_equivalence.py \
-        --reference_usd /path/to/old/Right_final.usda --side right
+        --reference_usd /path/to/reference.usda --side right
 
 The reference USD is expected to store each link as a prim under the
 articulation root, transformed to the HOME pose (all joints at zero) — which is

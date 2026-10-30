@@ -6,7 +6,7 @@ training PC (py310 / isaaclab, no polymetis) can drive the FR3 with joint
 impedance without installing polymetis. Joint-space control.
 
 Run on the NUC:
-    conda activate polymetis-local
+    conda activate <polymetis_env>
     python polymetis_joint_bridge.py            # robot=localhost:50051
 Sockets (bind on all interfaces so the wired-link client can reach them):
     state : PUB  tcp://*:5560   (msgpack) {joint_pos[7], joint_vel[7],
@@ -52,7 +52,7 @@ def main():
     ap.add_argument("--robot_ip", default="localhost", help="Polymetis server IP (on the NUC = localhost).")
     ap.add_argument("--robot_port", type=int, default=50051)
     # These two literals are deliberate. This file runs ON THE NUC inside the
-    # `polymetis-local` env, where `dexx` is not installed — importing
+    # Polymetis env, where `dexx` is not installed — importing
     # deploy_config here would break the bridge. They must stay in sync with
     # POLYMETIS_STATE_PORT / POLYMETIS_CMD_PORT by hand.
     ap.add_argument("--state_port", type=int, default=5560)

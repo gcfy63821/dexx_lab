@@ -21,6 +21,6 @@
     1.57,
     0.0
   ],
-  "description": "Linear frequency chirp 0.2\u21923 Hz, amplitude 0.15 rad, 7 joints phase-shifted. Enables full Bode plot extraction post-analysis.",
+  "description": "Linear frequency chirp 0.2\u21921.3 Hz, amplitude 0.06 rad, 7 joints phase-shifted. Enables full Bode plot extraction post-analysis.",
   "safety_checked": true
 }

@@ -465,7 +465,7 @@ def build_parser() -> argparse.ArgumentParser:
                    default=None,
                    help="back-projection intrinsics for the real depth (default: "
                         "deploy_config.SIM_INTRINSICS). The D455's own decimated depth "
-                        "intrinsics differ by ~1.5 px in cx, a lateral error that grows "
+                        "intrinsics differ in cx, a lateral error that grows "
                         "with depth and that no rigid transform can absorb.")
     s.add_argument("--box", type=float, nargs=6,
                    default=[-0.15, 0.85, -0.50, 0.40, 0.40, 1.10],
